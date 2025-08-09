@@ -1,0 +1,22 @@
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  <property name="LOG_LEVEL_PATTERN" value="%5p"/>
+  <property name="LOG_FILE" value="${LOG_FILE:-}"/>
+
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+  </appender>
+
+  <appender name="KAFKA" class="com.github.danielwegener.logback.kafka.KafkaAppender">
+    <topic>app-logs</topic>
+    <encoder class="com.github.danielwegener.logback.kafka.encoding.LayoutKafkaMessageEncoder">
+      <layout class="net.logstash.logback.layout.LogstashLayout"/>
+    </encoder>
+    <producerConfig>bootstrap.servers=${spring.kafka.bootstrap-servers}</producerConfig>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="KAFKA"/>
+  </root>
+</configuration> 
