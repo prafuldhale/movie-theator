@@ -5,6 +5,7 @@ import com.moviebookingapp.service.MovieService;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,9 +14,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1.0/moviebooking")
-@RequiredArgsConstructor
+
 public class AdminController {
+
     private final MovieService movieService;
+
+    @Autowired
+    public AdminController(MovieService movieService) {
+        this.movieService = movieService;
+    }
 
     @GetMapping("/{moviename}/booked/{theatre}")
     public ResponseEntity<BookedInfo> booked(@PathVariable("moviename") String moviename,
