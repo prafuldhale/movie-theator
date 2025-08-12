@@ -3,6 +3,7 @@ package com.moviebookingapp.service;
 import com.moviebookingapp.domain.Movie;
 import com.moviebookingapp.repository.MovieRepository;
 import com.moviebookingapp.repository.TicketRepository;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -57,5 +58,12 @@ public class MovieService {
         int remaining = movie.getTotalTickets() - booked;
         movie.setStatus(remaining <= 0 ? "SOLD OUT" : "BOOK ASAP");
         return movieRepository.save(movie);
+    }
+
+    public void deleteMovie(@NotBlank String movieName, @NotBlank String theatreName) {
+        long deletedCount = movieRepository.deleteByMovieNameAndTheatreName(movieName, theatreName);
+        if (deletedCount == 0) {
+            throw new IllegalArgumentException("Movie not found with name: " + movieName + " and theatre: " + theatreName);
+        }
     }
 } 

@@ -29,7 +29,10 @@ public class UserService {
             throw new IllegalArgumentException("Password and Confirm Password must match");
         }
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
-        validator.validate(user);
+        var violations = validator.validate(user);
+        if (!violations.isEmpty()) {
+            throw new jakarta.validation.ConstraintViolationException(violations);
+        }
         if (userRepository.findByLoginId(user.getLoginId()).isPresent()) {
             throw new IllegalArgumentException("Login Id must be unique");
         }

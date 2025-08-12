@@ -8,7 +8,7 @@ import com.moviebookingapp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,7 +17,7 @@ public class DataSeeder implements ApplicationRunner {
 
     private final MovieRepository movieRepository;
     private final UserRepository userRepository;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder encoder;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -46,4 +46,4 @@ public class DataSeeder implements ApplicationRunner {
                         .build())
         );
     }
-} 
+}

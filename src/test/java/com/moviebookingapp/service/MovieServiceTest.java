@@ -1,39 +1,42 @@
 package com.moviebookingapp.service;
 
-import com.moviebookingapp.config.TestConfig;
 import com.moviebookingapp.domain.Movie;
 import com.moviebookingapp.repository.MovieRepository;
+import com.moviebookingapp.repository.TicketRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
 
-@SpringBootTest
-@Import(TestConfig.class)
-@ActiveProfiles("test")
-@Transactional
+@ExtendWith(MockitoExtension.class)
 class MovieServiceTest {
 
-    @Autowired
-    private MovieService movieService;
-
-    @Autowired
+    @Mock
     private MovieRepository movieRepository;
+
+    @Mock
+    private TicketRepository ticketRepository;
+
+    @InjectMocks
+    private MovieService movieService;
 
     private Movie testMovie;
 
     @BeforeEach
     void setUp() {
-        movieRepository.deleteAll();
         testMovie = Movie.builder()
+                .id(1L)
                 .movieName("Test Movie")
                 .theatreName("Test Theatre")
                 .totalTickets(100)
@@ -42,71 +45,234 @@ class MovieServiceTest {
     }
 
     @Test
-    void getAllMovies_ShouldReturnEmptyList_WhenNoMovies() {
+    void getAllMovies_Success() {
+        // Arrange
+        List<Movie> expectedMovies = Arrays.asList(testMovie);
+        when(movieRepository.findAll()).thenReturn(expectedMovies);
+
+        // Act
         List<Movie> result = movieService.getAllMovies();
-        assertTrue(result.isEmpty());
+
+        // Assert
+        assertEquals(expectedMovies, result);
+        verify(movieRepository).findAll();
     }
 
     @Test
-    void getAllMovies_ShouldReturnAllMovies_WhenMoviesExist() {
-        movieRepository.save(testMovie);
-        List<Movie> result = movieService.getAllMovies();
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getMovieName()).isEqualTo("Test Movie");
+    void searchMovies_Success() {
+        // Arrange
+        String searchTerm = "Test";
+        List<Movie> expectedMovies = Arrays.asList(testMovie);
+        when(movieRepository.findByMovieNameContainingIgnoreCase(searchTerm)).thenReturn(expectedMovies);
+
+        // Act
+        List<Movie> result = movieService.searchMovies(searchTerm);
+
+        // Assert
+        assertEquals(expectedMovies, result);
+        verify(movieRepository).findByMovieNameContainingIgnoreCase(searchTerm);
     }
 
     @Test
-    void searchMovies_ShouldReturnMatchingMovies() {
-        movieRepository.save(testMovie);
-        List<Movie> result = movieService.searchMovies("Test Movie");
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getTheatreName()).isEqualTo("Test Theatre");
+    void addMovie_Success() {
+        // Arrange
+        when(movieRepository.save(any(Movie.class))).thenReturn(testMovie);
+
+        // Act
+        Movie result = movieService.addMovie(testMovie);
+
+        // Assert
+        assertEquals(testMovie, result);
+        verify(movieRepository).save(testMovie);
     }
 
     @Test
-    void searchMovies_ShouldReturnEmptyList_WhenNoMatches() {
-        movieRepository.save(testMovie);
-        List<Movie> result = movieService.searchMovies("Nonexistent Movie");
-        assertTrue(result.isEmpty());
+    void deleteMovieById_Success() {
+        // Arrange
+        Long movieId = 1L;
+        doNothing().when(movieRepository).deleteById(movieId);
+
+        // Act
+        movieService.deleteMovieById(movieId);
+
+        // Assert
+        verify(movieRepository).deleteById(movieId);
     }
 
     @Test
-    void updateTotalTickets_ShouldUpdateTickets_WhenMovieExists() {
-        Movie savedMovie = movieRepository.save(testMovie);
-        Movie updatedMovie = movieService.updateTotalTickets(
-            savedMovie.getMovieName(),
-            savedMovie.getTheatreName(),
-            50
-        );
-        assertThat(updatedMovie.getTotalTickets()).isEqualTo(50);
+    void bookedCount_WithBookings() {
+        // Arrange
+        String movieName = "Test Movie";
+        String theatreName = "Test Theatre";
+        when(ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName)).thenReturn(50L);
+
+        // Act
+        int result = movieService.bookedCount(movieName, theatreName);
+
+        // Assert
+        assertEquals(50, result);
+        verify(ticketRepository).totalBookedForMovieAndTheatre(movieName, theatreName);
     }
 
     @Test
-    void updateTotalTickets_ShouldUpdateStatus_WhenZeroTickets() {
-        Movie savedMovie = movieRepository.save(testMovie);
-        Movie updatedMovie = movieService.updateTotalTickets(
-            savedMovie.getMovieName(),
-            savedMovie.getTheatreName(),
-            0
-        );
-        assertThat(updatedMovie.getTotalTickets()).isEqualTo(0);
-        assertThat(updatedMovie.getStatus()).isEqualTo("SOLD OUT");
+    void bookedCount_NoBookings() {
+        // Arrange
+        String movieName = "Test Movie";
+        String theatreName = "Test Theatre";
+        when(ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName)).thenReturn(null);
+
+        // Act
+        int result = movieService.bookedCount(movieName, theatreName);
+
+        // Assert
+        assertEquals(0, result);
+        verify(ticketRepository).totalBookedForMovieAndTheatre(movieName, theatreName);
     }
 
     @Test
-    void bookedCount_ShouldReturnCorrectCount() {
-        Movie savedMovie = movieRepository.save(testMovie);
-        int initialTotal = savedMovie.getTotalTickets();
-        movieService.updateTotalTickets(
-            savedMovie.getMovieName(),
-            savedMovie.getTheatreName(),
-            initialTotal - 20
-        );
+    void computeAndUpdateStatus_BookAsap() {
+        // Arrange
+        String movieName = "Test Movie";
+        String theatreName = "Test Theatre";
+        testMovie.setTotalTickets(100);
+        
+        when(movieRepository.findByMovieNameAndTheatreName(movieName, theatreName))
+                .thenReturn(Optional.of(testMovie));
+        when(ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName)).thenReturn(50L);
+        when(movieRepository.save(any(Movie.class))).thenReturn(testMovie);
 
-        int bookedCount = movieService.bookedCount(
-            savedMovie.getMovieName(),
-            savedMovie.getTheatreName()
-        );
-        assertThat(bookedCount).isEqualTo(20);
+        // Act
+        String result = movieService.computeAndUpdateStatus(movieName, theatreName);
+
+        // Assert
+        assertEquals("BOOK ASAP", result);
+        assertEquals("BOOK ASAP", testMovie.getStatus());
+        verify(movieRepository).save(testMovie);
     }
-}
+
+    @Test
+    void computeAndUpdateStatus_SoldOut() {
+        // Arrange
+        String movieName = "Test Movie";
+        String theatreName = "Test Theatre";
+        testMovie.setTotalTickets(100);
+        
+        when(movieRepository.findByMovieNameAndTheatreName(movieName, theatreName))
+                .thenReturn(Optional.of(testMovie));
+        when(ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName)).thenReturn(100L);
+        when(movieRepository.save(any(Movie.class))).thenReturn(testMovie);
+
+        // Act
+        String result = movieService.computeAndUpdateStatus(movieName, theatreName);
+
+        // Assert
+        assertEquals("SOLD OUT", result);
+        assertEquals("SOLD OUT", testMovie.getStatus());
+        verify(movieRepository).save(testMovie);
+    }
+
+    @Test
+    void computeAndUpdateStatus_MovieNotFound() {
+        // Arrange
+        String movieName = "Non Existent Movie";
+        String theatreName = "Test Theatre";
+        when(movieRepository.findByMovieNameAndTheatreName(movieName, theatreName))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> 
+            movieService.computeAndUpdateStatus(movieName, theatreName));
+    }
+
+    @Test
+    void updateTotalTickets_Success() {
+        // Arrange
+        String movieName = "Test Movie";
+        String theatreName = "Test Theatre";
+        int newTotal = 150;
+        testMovie.setTotalTickets(100);
+        
+        when(movieRepository.findByMovieNameAndTheatreName(movieName, theatreName))
+                .thenReturn(Optional.of(testMovie));
+        when(ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName)).thenReturn(50L);
+        when(movieRepository.save(any(Movie.class))).thenReturn(testMovie);
+
+        // Act
+        Movie result = movieService.updateTotalTickets(movieName, theatreName, newTotal);
+
+        // Assert
+        assertEquals(testMovie, result);
+        assertEquals(newTotal, testMovie.getTotalTickets());
+        assertEquals("BOOK ASAP", testMovie.getStatus());
+        verify(movieRepository).save(testMovie);
+    }
+
+    @Test
+    void updateTotalTickets_NegativeTotal() {
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> 
+            movieService.updateTotalTickets("Test Movie", "Test Theatre", -10));
+    }
+
+    @Test
+    void updateTotalTickets_MovieNotFound() {
+        // Arrange
+        String movieName = "Non Existent Movie";
+        String theatreName = "Test Theatre";
+        when(movieRepository.findByMovieNameAndTheatreName(movieName, theatreName))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> 
+            movieService.updateTotalTickets(movieName, theatreName, 100));
+    }
+
+    @Test
+    void updateTotalTickets_SoldOut() {
+        // Arrange
+        String movieName = "Test Movie";
+        String theatreName = "Test Theatre";
+        int newTotal = 50;
+        testMovie.setTotalTickets(100);
+        
+        when(movieRepository.findByMovieNameAndTheatreName(movieName, theatreName))
+                .thenReturn(Optional.of(testMovie));
+        when(ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName)).thenReturn(50L);
+        when(movieRepository.save(any(Movie.class))).thenReturn(testMovie);
+
+        // Act
+        Movie result = movieService.updateTotalTickets(movieName, theatreName, newTotal);
+
+        // Assert
+        assertEquals(testMovie, result);
+        assertEquals(newTotal, testMovie.getTotalTickets());
+        assertEquals("SOLD OUT", testMovie.getStatus());
+        verify(movieRepository).save(testMovie);
+    }
+
+    @Test
+    void deleteMovie_Success() {
+        // Arrange
+        String movieName = "Test Movie";
+        String theatreName = "Test Theatre";
+        when(movieRepository.deleteByMovieNameAndTheatreName(movieName, theatreName)).thenReturn(1L);
+
+        // Act
+        movieService.deleteMovie(movieName, theatreName);
+
+        // Assert
+        verify(movieRepository).deleteByMovieNameAndTheatreName(movieName, theatreName);
+    }
+
+    @Test
+    void deleteMovie_MovieNotFound() {
+        // Arrange
+        String movieName = "Non Existent Movie";
+        String theatreName = "Test Theatre";
+        when(movieRepository.deleteByMovieNameAndTheatreName(movieName, theatreName)).thenReturn(0L);
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> 
+            movieService.deleteMovie(movieName, theatreName));
+    }
+} 

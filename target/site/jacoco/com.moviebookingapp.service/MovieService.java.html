@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MovieService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">moviebooking-backend</a> &gt; <a href="index.source.html" class="el_package">com.moviebookingapp.service</a> &gt; <span class="el_source">MovieService.java</span></div><h1>MovieService.java</h1><pre class="source lang-java linenums">package com.moviebookingapp.service;
+
+import com.moviebookingapp.domain.Movie;
+import com.moviebookingapp.repository.MovieRepository;
+import com.moviebookingapp.repository.TicketRepository;
+import jakarta.validation.constraints.NotBlank;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+<span class="fc" id="L13">@RequiredArgsConstructor</span>
+public class MovieService {
+    private final MovieRepository movieRepository;
+    private final TicketRepository ticketRepository;
+
+    public List&lt;Movie&gt; getAllMovies() {
+<span class="fc" id="L19">        return movieRepository.findAll();</span>
+    }
+
+    public List&lt;Movie&gt; searchMovies(String name) {
+<span class="fc" id="L23">        return movieRepository.findByMovieNameContainingIgnoreCase(name);</span>
+    }
+
+    public Movie addMovie(Movie movie) {
+<span class="fc" id="L27">        return movieRepository.save(movie);</span>
+    }
+
+    public void deleteMovieById(Long id) {
+<span class="fc" id="L31">        movieRepository.deleteById(id);</span>
+<span class="fc" id="L32">    }</span>
+
+    public int bookedCount(String movieName, String theatreName) {
+<span class="fc" id="L35">        Long total = ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName);</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        return total == null ? 0 : total.intValue();</span>
+    }
+
+    public String computeAndUpdateStatus(String movieName, String theatreName) {
+<span class="fc" id="L40">        Movie movie = movieRepository.findByMovieNameAndTheatreName(movieName, theatreName)</span>
+<span class="fc" id="L41">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Movie not found&quot;));</span>
+<span class="fc" id="L42">        int booked = bookedCount(movieName, theatreName);</span>
+<span class="fc" id="L43">        int remaining = movie.getTotalTickets() - booked;</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">        String status = remaining &lt;= 0 ? &quot;SOLD OUT&quot; : &quot;BOOK ASAP&quot;;</span>
+<span class="fc" id="L45">        movie.setStatus(status);</span>
+<span class="fc" id="L46">        movieRepository.save(movie);</span>
+<span class="fc" id="L47">        return status;</span>
+    }
+
+    public Movie updateTotalTickets(String movieName, String theatreName, int total) {
+<span class="fc bfc" id="L51" title="All 2 branches covered.">        if (total &lt; 0) {</span>
+<span class="fc" id="L52">            throw new IllegalArgumentException(&quot;Total tickets must be non-negative&quot;);</span>
+        }
+<span class="fc" id="L54">        Movie movie = movieRepository.findByMovieNameAndTheatreName(movieName, theatreName)</span>
+<span class="fc" id="L55">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Movie not found&quot;));</span>
+<span class="fc" id="L56">        movie.setTotalTickets(total);</span>
+<span class="fc" id="L57">        int booked = bookedCount(movieName, theatreName);</span>
+<span class="fc" id="L58">        int remaining = movie.getTotalTickets() - booked;</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        movie.setStatus(remaining &lt;= 0 ? &quot;SOLD OUT&quot; : &quot;BOOK ASAP&quot;);</span>
+<span class="fc" id="L60">        return movieRepository.save(movie);</span>
+    }
+
+    public void deleteMovie(@NotBlank String movieName, @NotBlank String theatreName) {
+<span class="fc" id="L64">        long deletedCount = movieRepository.deleteByMovieNameAndTheatreName(movieName, theatreName);</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (deletedCount == 0) {</span>
+<span class="fc" id="L66">            throw new IllegalArgumentException(&quot;Movie not found with name: &quot; + movieName + &quot; and theatre: &quot; + theatreName);</span>
+        }
+<span class="fc" id="L68">    }</span>
+} 
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

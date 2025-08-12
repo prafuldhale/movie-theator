@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TicketController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">moviebooking-backend</a> &gt; <a href="index.source.html" class="el_package">com.moviebookingapp.controller</a> &gt; <span class="el_source">TicketController.java</span></div><h1>TicketController.java</h1><pre class="source lang-java linenums">package com.moviebookingapp.controller;
+
+import com.moviebookingapp.domain.Ticket;
+import com.moviebookingapp.dto.TicketRequestDTO;
+import com.moviebookingapp.service.MovieService;
+import com.moviebookingapp.service.TicketService;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping(&quot;/api/v1.0/moviebooking&quot;)
+
+public class TicketController {
+
+    @Autowired
+    private final TicketService ticketService;
+    @Autowired
+    private final MovieService movieService;
+
+    @Autowired
+<span class="fc" id="L23">    public TicketController(TicketService ticketService, MovieService movieService) {</span>
+<span class="fc" id="L24">        this.ticketService = ticketService;</span>
+<span class="fc" id="L25">        this.movieService = movieService;</span>
+<span class="fc" id="L26">    }</span>
+    @PostMapping(&quot;/{moviename}/add&quot;)
+    public ResponseEntity&lt;Ticket&gt; add(@PathVariable(&quot;moviename&quot;) String moviename,
+                                      @Valid @RequestBody TicketRequestDTO request) {
+<span class="fc" id="L30">        Ticket ticket = Ticket.builder()</span>
+<span class="fc" id="L31">                .movieName(moviename)</span>
+<span class="fc" id="L32">                .theatreName(request.getTheatreName())</span>
+<span class="fc" id="L33">                .numberOfTickets(request.getNumberOfTickets())</span>
+<span class="fc" id="L34">                .seatNumbers(request.getSeatNumbers())</span>
+<span class="fc" id="L35">                .userLoginId(request.getUserLoginId())</span>
+<span class="fc" id="L36">                .build();</span>
+<span class="fc" id="L37">        return ResponseEntity.ok(ticketService.bookTicket(ticket));</span>
+    }
+
+    @PutMapping(&quot;/{moviename}/update/{ticket}&quot;)
+    public ResponseEntity&lt;String&gt; updateStatus(@PathVariable(&quot;moviename&quot;) String moviename,
+                                               @PathVariable(&quot;ticket&quot;) String theatreName) {
+<span class="fc" id="L43">        String status = movieService.computeAndUpdateStatus(moviename, theatreName);</span>
+<span class="fc" id="L44">        return ResponseEntity.ok(status);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

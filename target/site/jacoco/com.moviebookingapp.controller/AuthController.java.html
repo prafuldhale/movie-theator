@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuthController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">moviebooking-backend</a> &gt; <a href="index.source.html" class="el_package">com.moviebookingapp.controller</a> &gt; <span class="el_source">AuthController.java</span></div><h1>AuthController.java</h1><pre class="source lang-java linenums">package com.moviebookingapp.controller;
+
+import com.moviebookingapp.domain.User;
+import com.moviebookingapp.dto.LoginRequestDTO;
+import com.moviebookingapp.dto.PasswordResetDTO;
+import com.moviebookingapp.dto.UserRegistrationDTO;
+import com.moviebookingapp.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/v1.0/moviebooking&quot;)
+<span class="fc" id="L18">@RequiredArgsConstructor</span>
+public class AuthController {
+    private final UserService userService;
+
+    @PostMapping(&quot;/register&quot;)
+    public ResponseEntity&lt;User&gt; register(@Valid @RequestBody UserRegistrationDTO request) {
+<span class="fc" id="L24">        return ResponseEntity.ok(userService.register(</span>
+<span class="fc" id="L25">            User.builder()</span>
+<span class="fc" id="L26">                .firstName(request.getFirstName())</span>
+<span class="fc" id="L27">                .lastName(request.getLastName())</span>
+<span class="fc" id="L28">                .email(request.getEmail())</span>
+<span class="fc" id="L29">                .loginId(request.getLoginId())</span>
+<span class="fc" id="L30">                .contactNumber(request.getContactNumber())</span>
+<span class="fc" id="L31">                .build(),</span>
+<span class="fc" id="L32">            request.getPassword(),</span>
+<span class="fc" id="L33">            request.getConfirmPassword()</span>
+        ));
+    }
+
+    @PostMapping(&quot;/login&quot;)
+    public ResponseEntity&lt;Map&lt;String, String&gt;&gt; login(@Valid @RequestBody LoginRequestDTO request) {
+<span class="fc" id="L39">        boolean authenticated = userService.login(request.getLoginId(), request.getPassword());</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        if (!authenticated) {</span>
+<span class="fc" id="L41">            return ResponseEntity.badRequest().body(Collections.singletonMap(&quot;error&quot;, &quot;Invalid credentials&quot;));</span>
+        }
+        // Generate and return token
+<span class="fc" id="L44">        return ResponseEntity.ok(Collections.singletonMap(&quot;token&quot;, &quot;dummy-token-&quot; + request.getLoginId()));</span>
+    }
+
+    @PutMapping(&quot;/forgot&quot;)
+    public ResponseEntity&lt;Void&gt; resetPassword(@Valid @RequestBody PasswordResetDTO request) {
+<span class="fc" id="L49">        userService.resetPassword(request.getLoginId(), request.getPassword(), request.getPassword(), request.getConfirmPassword());</span>
+<span class="fc" id="L50">        return ResponseEntity.ok().build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

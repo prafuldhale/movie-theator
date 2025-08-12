@@ -2,9 +2,7 @@ package com.moviebookingapp.controller;
 
 import com.moviebookingapp.domain.Movie;
 import com.moviebookingapp.service.MovieService;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
+import com.moviebookingapp.dto.BookedInfoDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,9 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1.0/moviebooking")
-
 public class AdminController {
-
     private final MovieService movieService;
 
     @Autowired
@@ -25,7 +21,7 @@ public class AdminController {
     }
 
     @GetMapping("/{moviename}/booked/{theatre}")
-    public ResponseEntity<BookedInfo> booked(@PathVariable("moviename") String moviename,
+    public ResponseEntity<BookedInfoDTO> booked(@PathVariable("moviename") String moviename,
                                              @PathVariable("theatre") String theatre) {
         int booked = movieService.bookedCount(moviename, theatre);
         Movie movie = movieService.searchMovies(moviename).stream()
@@ -33,14 +29,6 @@ public class AdminController {
                 .findFirst().orElseThrow(() -> new IllegalArgumentException("Movie not found"));
         int remaining = movie.getTotalTickets() - booked;
         String status = remaining <= 0 ? "SOLD OUT" : "BOOK ASAP";
-        return ResponseEntity.ok(new BookedInfo(booked, Math.max(remaining, 0), status));
+        return ResponseEntity.ok(new BookedInfoDTO(booked, Math.max(remaining, 0), status));
     }
-
-    @Data
-    @AllArgsConstructor
-    static class BookedInfo {
-        private int booked;
-        private int remaining;
-        private String status;
-    }
-} 
+}

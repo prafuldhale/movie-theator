@@ -35,4 +35,4 @@ public class Movie {
 
     @Column(name = "status")
     private String status; // SOLD OUT / BOOK ASAP
-} 
+}

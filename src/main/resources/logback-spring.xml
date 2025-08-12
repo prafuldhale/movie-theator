@@ -13,10 +13,15 @@
       <layout class="net.logstash.logback.layout.LogstashLayout"/>
     </encoder>
     <producerConfig>bootstrap.servers=${spring.kafka.bootstrap-servers}</producerConfig>
+    <deliveryStrategy class="com.github.danielwegener.logback.kafka.delivery.AsynchronousDeliveryStrategy"/>
   </appender>
+
+  <logger name="org.apache.kafka" level="WARN"/>
+  <logger name="kafka" level="WARN"/>
+  <logger name="org.springframework.kafka" level="WARN"/>
 
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
     <appender-ref ref="KAFKA"/>
   </root>
-</configuration> 
+</configuration>

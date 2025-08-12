@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>TicketService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">moviebooking-backend</a> &gt; <a href="index.source.html" class="el_package">com.moviebookingapp.service</a> &gt; <span class="el_source">TicketService.java</span></div><h1>TicketService.java</h1><pre class="source lang-java linenums">package com.moviebookingapp.service;
+
+import com.moviebookingapp.config.AppConstants;
+import com.moviebookingapp.domain.Movie;
+import com.moviebookingapp.domain.Ticket;
+import com.moviebookingapp.repository.MovieRepository;
+import com.moviebookingapp.repository.TicketRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.HashSet;
+
+@Service
+<span class="fc" id="L15">@RequiredArgsConstructor</span>
+public class TicketService {
+    private final TicketRepository ticketRepository;
+    private final MovieRepository movieRepository;
+    private final KafkaTemplate&lt;String, String&gt; kafkaTemplate;
+
+    public Ticket bookTicket(Ticket ticket) {
+<span class="fc" id="L22">        validateTicket(ticket);</span>
+<span class="fc" id="L23">        Movie movie = movieRepository.findByMovieNameAndTheatreName(ticket.getMovieName(), ticket.getTheatreName())</span>
+<span class="fc" id="L24">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Movie/Theatre not found&quot;));</span>
+<span class="fc" id="L25">        Long alreadyBookedLong = ticketRepository.totalBookedForMovieAndTheatre(ticket.getMovieName(), ticket.getTheatreName());</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">        int alreadyBooked = alreadyBookedLong == null ? 0 : alreadyBookedLong.intValue();</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (alreadyBooked + ticket.getNumberOfTickets() &gt; movie.getTotalTickets()) {</span>
+<span class="fc" id="L28">            throw new IllegalArgumentException(&quot;Not enough tickets available&quot;);</span>
+        }
+<span class="fc" id="L30">        Ticket saved = ticketRepository.save(ticket);</span>
+<span class="fc" id="L31">        kafkaTemplate.send(AppConstants.KAFKA_TOPIC_TICKETS,</span>
+<span class="fc" id="L32">                ticket.getMovieName() + &quot;|&quot; + ticket.getTheatreName() + &quot;|&quot; + ticket.getNumberOfTickets());</span>
+<span class="fc" id="L33">        return saved;</span>
+    }
+
+    private void validateTicket(Ticket ticket) {
+<span class="fc bfc" id="L37" title="All 2 branches covered.">        if (ticket.getNumberOfTickets() &lt;= 0) {</span>
+<span class="fc" id="L38">            throw new IllegalArgumentException(&quot;Number of tickets must be positive&quot;);</span>
+        }
+<span class="fc bfc" id="L40" title="All 4 branches covered.">        if (ticket.getSeatNumbers() == null || ticket.getSeatNumbers().isEmpty()) {</span>
+<span class="fc" id="L41">            throw new IllegalArgumentException(&quot;Seat numbers must be provided&quot;);</span>
+        }
+<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (ticket.getSeatNumbers().size() != ticket.getNumberOfTickets()) {</span>
+<span class="fc" id="L44">            throw new IllegalArgumentException(&quot;Number of seat numbers must match number of tickets&quot;);</span>
+        }
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (new HashSet&lt;&gt;(ticket.getSeatNumbers()).size() != ticket.getSeatNumbers().size()) {</span>
+<span class="fc" id="L47">            throw new IllegalArgumentException(&quot;Duplicate seat numbers are not allowed&quot;);</span>
+        }
+<span class="fc" id="L49">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>
