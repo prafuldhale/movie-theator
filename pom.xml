@@ -6,8 +6,12 @@
   <version>0.0.1-SNAPSHOT</version>
   <name>moviebooking-backend</name>
   <description>Movie Booking App Backend (Spring Boot, MySQL, Kafka, Logging, Monitoring)</description>
-  
   <properties>
+    <sonar.organization>prafuldhale</sonar.organization>
+    <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+  </properties>
+  <properties>
+    
     <java.version>17</java.version>
     <spring-boot.version>3.1.2</spring-boot.version>
     <lombok.version>1.18.28</lombok.version>
