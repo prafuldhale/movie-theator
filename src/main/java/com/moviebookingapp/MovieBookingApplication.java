@@ -11,14 +11,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 public class MovieBookingApplication {
 
     public static void main(String[] args) {
-        log.info("Starting Movie Booking Application...");
-        
-        try {
             SpringApplication.run(MovieBookingApplication.class, args);
-            log.info("Movie Booking Application started successfully!");
-        } catch (Exception e) {
-            log.error("Failed to start Movie Booking Application: {}", e.getMessage(), e);
-            throw e;
-        }
     }
 } 
