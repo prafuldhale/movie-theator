@@ -13,6 +13,7 @@ C:\Users\prafu\movie-theator\src\main\java\com\moviebookingapp\exception\RestExc
 C:\Users\prafu\movie-theator\src\main\java\com\moviebookingapp\repository\TicketRepository.java
 C:\Users\prafu\movie-theator\src\main\java\com\moviebookingapp\domain\Movie.java
 C:\Users\prafu\movie-theator\src\main\java\com\moviebookingapp\dto\BookedInfoDTO.java
+C:\Users\prafu\movie-theator\src\main\java\com\moviebookingapp\config\TestConfig.java
 C:\Users\prafu\movie-theator\src\main\java\com\moviebookingapp\config\AppConstants.java
 C:\Users\prafu\movie-theator\src\main\java\com\moviebookingapp\dto\TicketRequestDTO.java
 C:\Users\prafu\movie-theator\src\main\java\com\moviebookingapp\controller\AuthController.java

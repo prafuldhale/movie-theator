@@ -3,7 +3,8 @@
 import com.moviebookingapp.domain.Movie;
 import com.moviebookingapp.service.MovieService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,35 +12,105 @@ import java.util.List;
 
 @RestController
 @RequestMapping(&quot;/api/v1.0/moviebooking&quot;)
+<span class="fc" id="L15">@RequiredArgsConstructor</span>
+<span class="fc" id="L16">@Slf4j</span>
 public class MovieController {
-
     private final MovieService movieService;
-    @Autowired
-<span class="fc" id="L18">    public MovieController(MovieService movieService) {</span>
-<span class="fc" id="L19">        this.movieService = movieService;</span>
-<span class="fc" id="L20">    }</span>
 
     @GetMapping(&quot;/all&quot;)
-    public ResponseEntity&lt;List&lt;Movie&gt;&gt; all() {
-<span class="fc" id="L24">        return ResponseEntity.ok(movieService.getAllMovies());</span>
+    public ResponseEntity&lt;List&lt;Movie&gt;&gt; getAllMovies() {
+<span class="fc" id="L22">        log.info(&quot;Request to get all movies&quot;);</span>
+        
+        try {
+<span class="fc" id="L25">            List&lt;Movie&gt; movies = movieService.getAllMovies();</span>
+<span class="fc" id="L26">            log.info(&quot;Retrieved {} movies successfully&quot;, movies.size());</span>
+<span class="fc" id="L27">            log.debug(&quot;Movies retrieved: {}&quot;, movies.stream().map(Movie::getMovieName).toList());</span>
+<span class="fc" id="L28">            return ResponseEntity.ok(movies);</span>
+<span class="nc" id="L29">        } catch (Exception e) {</span>
+<span class="nc" id="L30">            log.error(&quot;Error retrieving all movies: {}&quot;, e.getMessage(), e);</span>
+<span class="nc" id="L31">            throw e;</span>
+        }
     }
 
     @GetMapping(&quot;/movies/search/{moviename}&quot;)
-    public ResponseEntity&lt;List&lt;Movie&gt;&gt; search(@PathVariable(&quot;moviename&quot;) String moviename) {
-<span class="fc" id="L29">        return ResponseEntity.ok(movieService.searchMovies(moviename));</span>
+    public ResponseEntity&lt;List&lt;Movie&gt;&gt; searchMovies(@PathVariable(&quot;moviename&quot;) String moviename) {
+<span class="fc" id="L37">        log.info(&quot;Search request for movies with name: {}&quot;, moviename);</span>
+        
+        try {
+<span class="fc" id="L40">            List&lt;Movie&gt; movies = movieService.searchMovies(moviename);</span>
+<span class="fc" id="L41">            log.info(&quot;Found {} movies matching search term: {}&quot;, movies.size(), moviename);</span>
+<span class="fc" id="L42">            log.debug(&quot;Search results: {}&quot;, movies.stream().map(Movie::getMovieName).toList());</span>
+<span class="fc" id="L43">            return ResponseEntity.ok(movies);</span>
+<span class="nc" id="L44">        } catch (Exception e) {</span>
+<span class="nc" id="L45">            log.error(&quot;Error searching movies with term '{}': {}&quot;, moviename, e.getMessage(), e);</span>
+<span class="nc" id="L46">            throw e;</span>
+        }
+    }
+
+    @PostMapping(&quot;/movies/add&quot;)
+    public ResponseEntity&lt;Movie&gt; addMovie(@RequestBody Movie movie) {
+<span class="nc" id="L52">        log.info(&quot;Request to add new movie: {} at theatre: {}&quot;, movie.getMovieName(), movie.getTheatreName());</span>
+<span class="nc" id="L53">        log.debug(&quot;Movie details - totalTickets: {}, status: {}&quot;, movie.getTotalTickets(), movie.getStatus());</span>
+        
+        try {
+<span class="nc" id="L56">            Movie savedMovie = movieService.addMovie(movie);</span>
+<span class="nc" id="L57">            log.info(&quot;Movie added successfully - id: {}, name: {}, theatre: {}&quot;, </span>
+<span class="nc" id="L58">                    savedMovie.getId(), savedMovie.getMovieName(), savedMovie.getTheatreName());</span>
+<span class="nc" id="L59">            return ResponseEntity.status(HttpStatus.CREATED).body(savedMovie);</span>
+<span class="nc" id="L60">        } catch (Exception e) {</span>
+<span class="nc" id="L61">            log.error(&quot;Error adding movie '{}': {}&quot;, movie.getMovieName(), e.getMessage(), e);</span>
+<span class="nc" id="L62">            throw e;</span>
+        }
     }
 
     @PatchMapping(&quot;/{moviename}/theatres/{theatre}/tickets&quot;)
     public ResponseEntity&lt;Movie&gt; updateTickets(@PathVariable(&quot;moviename&quot;) String moviename,
-                                               @PathVariable(&quot;theatre&quot;) String theatre,
-                                               @RequestParam(&quot;total&quot;) int total) {
-<span class="fc" id="L36">        return ResponseEntity.ok(movieService.updateTotalTickets(moviename, theatre, total));</span>
+                                             @PathVariable(&quot;theatre&quot;) String theatre,
+                                             @RequestParam(&quot;total&quot;) int total) {
+<span class="fc" id="L70">        log.info(&quot;Request to update tickets for movie: {} at theatre: {} to total: {}&quot;, </span>
+<span class="fc" id="L71">                moviename, theatre, total);</span>
+        
+        try {
+<span class="fc" id="L74">            Movie updatedMovie = movieService.updateTotalTickets(moviename, theatre, total);</span>
+<span class="fc" id="L75">            log.info(&quot;Tickets updated successfully for movie: {} at theatre: {}, new total: {}&quot;, </span>
+<span class="fc" id="L76">                    moviename, theatre, updatedMovie.getTotalTickets());</span>
+<span class="fc" id="L77">            return ResponseEntity.ok(updatedMovie);</span>
+<span class="fc" id="L78">        } catch (Exception e) {</span>
+<span class="fc" id="L79">            log.error(&quot;Error updating tickets for movie '{}' at theatre '{}': {}&quot;, </span>
+<span class="fc" id="L80">                     moviename, theatre, e.getMessage(), e);</span>
+<span class="fc" id="L81">            throw e;</span>
+        }
     }
 
     @DeleteMapping(&quot;/{moviename}/delete/{id}&quot;)
-    public ResponseEntity&lt;Void&gt; delete(@PathVariable String moviename, @PathVariable Long id) {
-<span class="fc" id="L41">        movieService.deleteMovieById(id);</span>
-<span class="fc" id="L42">        return ResponseEntity.noContent().build();</span>
+    public ResponseEntity&lt;Void&gt; deleteMovie(@PathVariable(&quot;moviename&quot;) String moviename,
+                                          @PathVariable(&quot;id&quot;) Long id) {
+<span class="nc" id="L88">        log.info(&quot;Request to delete movie with id: {} (name: {})&quot;, id, moviename);</span>
+        
+        try {
+<span class="nc" id="L91">            movieService.deleteMovieById(id);</span>
+<span class="nc" id="L92">            log.info(&quot;Movie deleted successfully - id: {}, name: {}&quot;, id, moviename);</span>
+<span class="nc" id="L93">            return ResponseEntity.noContent().build();</span>
+<span class="nc" id="L94">        } catch (Exception e) {</span>
+<span class="nc" id="L95">            log.error(&quot;Error deleting movie with id {}: {}&quot;, id, e.getMessage(), e);</span>
+<span class="nc" id="L96">            throw e;</span>
+        }
+    }
+
+    @DeleteMapping(&quot;/{moviename}/delete/{theatre}&quot;)
+    public ResponseEntity&lt;Void&gt; deleteMovie(@PathVariable(&quot;moviename&quot;) String moviename,
+                                          @PathVariable(&quot;theatre&quot;) String theatre) {
+<span class="nc" id="L103">        log.info(&quot;Request to delete movie: {} at theatre: {}&quot;, moviename, theatre);</span>
+        
+        try {
+<span class="nc" id="L106">            movieService.deleteMovie(moviename, theatre);</span>
+<span class="nc" id="L107">            log.info(&quot;Movie deleted successfully - name: {}, theatre: {}&quot;, moviename, theatre);</span>
+<span class="nc" id="L108">            return ResponseEntity.noContent().build();</span>
+<span class="nc" id="L109">        } catch (Exception e) {</span>
+<span class="nc" id="L110">            log.error(&quot;Error deleting movie '{}' at theatre '{}': {}&quot;, </span>
+<span class="nc" id="L111">                     moviename, theatre, e.getMessage(), e);</span>
+<span class="nc" id="L112">            throw e;</span>
+        }
     }
 } 
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

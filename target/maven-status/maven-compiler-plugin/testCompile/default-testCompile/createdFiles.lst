@@ -1,8 +1,6 @@
 com\moviebookingapp\exception\RestExceptionHandlerTest.class
-com\moviebookingapp\SmokeTest.class
 com\moviebookingapp\controller\AuthControllerTest.class
 com\moviebookingapp\service\TicketServiceTest.class
-com\moviebookingapp\config\CommonConfigTest.class
 com\moviebookingapp\controller\MovieControllerTest.class
 com\moviebookingapp\service\MovieServiceTest.class
 com\moviebookingapp\service\UserServiceTest.class

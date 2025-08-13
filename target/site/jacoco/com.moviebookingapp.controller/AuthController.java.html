@@ -7,6 +7,7 @@ import com.moviebookingapp.dto.UserRegistrationDTO;
 import com.moviebookingapp.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,39 +16,74 @@ import java.util.Map;
 
 @RestController
 @RequestMapping(&quot;/api/v1.0/moviebooking&quot;)
-<span class="fc" id="L18">@RequiredArgsConstructor</span>
+<span class="fc" id="L19">@RequiredArgsConstructor</span>
+<span class="fc" id="L20">@Slf4j</span>
 public class AuthController {
     private final UserService userService;
 
     @PostMapping(&quot;/register&quot;)
     public ResponseEntity&lt;User&gt; register(@Valid @RequestBody UserRegistrationDTO request) {
-<span class="fc" id="L24">        return ResponseEntity.ok(userService.register(</span>
-<span class="fc" id="L25">            User.builder()</span>
-<span class="fc" id="L26">                .firstName(request.getFirstName())</span>
-<span class="fc" id="L27">                .lastName(request.getLastName())</span>
-<span class="fc" id="L28">                .email(request.getEmail())</span>
-<span class="fc" id="L29">                .loginId(request.getLoginId())</span>
-<span class="fc" id="L30">                .contactNumber(request.getContactNumber())</span>
-<span class="fc" id="L31">                .build(),</span>
-<span class="fc" id="L32">            request.getPassword(),</span>
-<span class="fc" id="L33">            request.getConfirmPassword()</span>
-        ));
+<span class="fc" id="L26">        log.info(&quot;User registration request received for loginId: {}&quot;, request.getLoginId());</span>
+<span class="fc" id="L27">        log.debug(&quot;Registration details - firstName: {}, lastName: {}, email: {}&quot;,</span>
+<span class="fc" id="L28">                 request.getFirstName(), request.getLastName(), request.getEmail());</span>
+
+        try {
+<span class="fc" id="L31">            User user = userService.register(</span>
+<span class="fc" id="L32">                User.builder()</span>
+<span class="fc" id="L33">                    .firstName(request.getFirstName())</span>
+<span class="fc" id="L34">                    .lastName(request.getLastName())</span>
+<span class="fc" id="L35">                    .email(request.getEmail())</span>
+<span class="fc" id="L36">                    .loginId(request.getLoginId())</span>
+<span class="fc" id="L37">                    .contactNumber(request.getContactNumber())</span>
+<span class="fc" id="L38">                    .build(),</span>
+<span class="fc" id="L39">                request.getPassword(),</span>
+<span class="fc" id="L40">                request.getConfirmPassword()</span>
+            );
+
+<span class="fc" id="L43">            log.info(&quot;User registration successful for loginId: {}, userId: {}&quot;,</span>
+<span class="fc" id="L44">                    request.getLoginId(), user.getId());</span>
+<span class="fc" id="L45">            return ResponseEntity.ok(user);</span>
+<span class="fc" id="L46">        } catch (Exception e) {</span>
+<span class="fc" id="L47">            log.error(&quot;User registration failed for loginId: {}, error: {}&quot;,</span>
+<span class="fc" id="L48">                     request.getLoginId(), e.getMessage(), e);</span>
+<span class="fc" id="L49">            throw e;</span>
+        }
     }
 
     @PostMapping(&quot;/login&quot;)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; login(@Valid @RequestBody LoginRequestDTO request) {
-<span class="fc" id="L39">        boolean authenticated = userService.login(request.getLoginId(), request.getPassword());</span>
-<span class="fc bfc" id="L40" title="All 2 branches covered.">        if (!authenticated) {</span>
-<span class="fc" id="L41">            return ResponseEntity.badRequest().body(Collections.singletonMap(&quot;error&quot;, &quot;Invalid credentials&quot;));</span>
+<span class="fc" id="L55">        log.info(&quot;Login attempt for loginId: {}&quot;, request.getLoginId());</span>
+
+        try {
+<span class="fc" id="L58">            boolean authenticated = userService.login(request.getLoginId(), request.getPassword());</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">            if (!authenticated) {</span>
+<span class="fc" id="L60">                log.warn(&quot;Login failed for loginId: {} - Invalid credentials&quot;, request.getLoginId());</span>
+<span class="fc" id="L61">                return ResponseEntity.badRequest().body(Collections.singletonMap(&quot;error&quot;, &quot;Invalid credentials&quot;));</span>
+            }
+
+<span class="fc" id="L64">            log.info(&quot;Login successful for loginId: {}&quot;, request.getLoginId());</span>
+            // Generate and return token
+<span class="fc" id="L66">            return ResponseEntity.ok(Collections.singletonMap(&quot;token&quot;, &quot;dummy-token-&quot; + request.getLoginId()));</span>
+<span class="fc" id="L67">        } catch (Exception e) {</span>
+<span class="fc" id="L68">            log.error(&quot;Login error for loginId: {}, error: {}&quot;,</span>
+<span class="fc" id="L69">                     request.getLoginId(), e.getMessage(), e);</span>
+<span class="fc" id="L70">            throw e;</span>
         }
-        // Generate and return token
-<span class="fc" id="L44">        return ResponseEntity.ok(Collections.singletonMap(&quot;token&quot;, &quot;dummy-token-&quot; + request.getLoginId()));</span>
     }
 
     @PutMapping(&quot;/forgot&quot;)
     public ResponseEntity&lt;Void&gt; resetPassword(@Valid @RequestBody PasswordResetDTO request) {
-<span class="fc" id="L49">        userService.resetPassword(request.getLoginId(), request.getPassword(), request.getPassword(), request.getConfirmPassword());</span>
-<span class="fc" id="L50">        return ResponseEntity.ok().build();</span>
+<span class="fc" id="L76">        log.info(&quot;Password reset request received for loginId: {}&quot;, request.getLoginId());</span>
+
+        try {
+<span class="fc" id="L79">            userService.resetPassword(request.getLoginId(), request.getPassword(), request.getPassword(), request.getConfirmPassword());</span>
+<span class="fc" id="L80">            log.info(&quot;Password reset successful for loginId: {}&quot;, request.getLoginId());</span>
+<span class="fc" id="L81">            return ResponseEntity.ok().build();</span>
+<span class="fc" id="L82">        } catch (Exception e) {</span>
+<span class="fc" id="L83">            log.error(&quot;Password reset failed for loginId: {}, error: {}&quot;,</span>
+<span class="fc" id="L84">                     request.getLoginId(), e.getMessage(), e);</span>
+<span class="fc" id="L85">            throw e;</span>
+        }
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

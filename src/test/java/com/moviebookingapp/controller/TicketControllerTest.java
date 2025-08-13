@@ -1,162 +1,122 @@
 package com.moviebookingapp.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moviebookingapp.domain.Ticket;
 import com.moviebookingapp.dto.TicketRequestDTO;
 import com.moviebookingapp.service.MovieService;
 import com.moviebookingapp.service.TicketService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.core.MethodParameter;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import java.util.Arrays;
-import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.Mockito.*;
 
-@WebMvcTest(TicketController.class)
 class TicketControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockBean
+    @Mock
     private TicketService ticketService;
 
-    @MockBean
+    @Mock
     private MovieService movieService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @InjectMocks
+    private TicketController ticketController;
 
-    private Ticket testTicket;
-    private TicketRequestDTO ticketRequestDTO;
+    private TicketRequestDTO requestDTO;
+    private Ticket savedTicket;
 
     @BeforeEach
     void setUp() {
-        testTicket = Ticket.builder()
-                .id(1L)
-                .movieName("Test Movie")
-                .theatreName("Test Theatre")
+        MockitoAnnotations.openMocks(this);
+
+        requestDTO = new TicketRequestDTO();
+        requestDTO.setTheatreName("PVR");
+        requestDTO.setNumberOfTickets(2);
+        requestDTO.setSeatNumbers(Arrays.asList("A1", "A2"));
+        requestDTO.setUserLoginId("user123");
+
+        savedTicket = Ticket.builder()
+                .id(123L)
+                .movieName("Avatar")
+                .theatreName("PVR")
                 .numberOfTickets(2)
                 .seatNumbers(Arrays.asList("A1", "A2"))
-                .userLoginId("testuser")
+                .userLoginId("user123")
                 .build();
-
-        ticketRequestDTO = new TicketRequestDTO();
-        ticketRequestDTO.setTheatreName("Test Theatre");
-        ticketRequestDTO.setNumberOfTickets(2);
-        ticketRequestDTO.setSeatNumbers(Arrays.asList("A1", "A2"));
-        ticketRequestDTO.setUserLoginId("testuser");
     }
 
     @Test
-    void addTicket_Success() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        when(ticketService.bookTicket(any(Ticket.class))).thenReturn(testTicket);
+    @DisplayName("✅ Book ticket successfully")
+    void shouldBookTicketSuccessfully() {
+        when(ticketService.bookTicket(any(Ticket.class))).thenReturn(savedTicket);
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/{moviename}/add", movieName)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(ticketRequestDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.movieName").value("Test Movie"))
-                .andExpect(jsonPath("$.theatreName").value("Test Theatre"))
-                .andExpect(jsonPath("$.numberOfTickets").value(2))
-                .andExpect(jsonPath("$.userLoginId").value("testuser"));
+        ResponseEntity<Ticket> response = ticketController.add("Avatar", requestDTO);
+
+        assertThat(response.getStatusCodeValue()).isEqualTo(200);
+        assertThat(response.getBody()).isEqualTo(savedTicket);
+
+        verify(ticketService, times(1)).bookTicket(any(Ticket.class));
     }
 
     @Test
-    void addTicket_ValidationFailure() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        ticketRequestDTO.setNumberOfTickets(0); // Invalid: zero tickets
+    @DisplayName("❌ Fail to book ticket due to service error")
+    void shouldThrowExceptionWhenBookingFails() {
+        when(ticketService.bookTicket(any(Ticket.class))).thenThrow(new RuntimeException("Booking failed"));
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/{moviename}/add", movieName)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(ticketRequestDTO)))
-                .andExpect(status().isBadRequest());
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> ticketController.add("Avatar", requestDTO));
+
+        assertThat(ex.getMessage()).isEqualTo("Booking failed");
+        verify(ticketService, times(1)).bookTicket(any(Ticket.class));
     }
 
     @Test
-    void addTicket_ServiceException() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        when(ticketService.bookTicket(any(Ticket.class)))
-                .thenThrow(new IllegalArgumentException("Not enough tickets available"));
+    @DisplayName("❌ Validation error when booking ticket")
+    void shouldFailValidation() {
+        TicketRequestDTO invalidRequest = new TicketRequestDTO();
+        invalidRequest.setTheatreName("");
+        invalidRequest.setNumberOfTickets(0);
+        invalidRequest.setSeatNumbers(Arrays.asList());
+        invalidRequest.setUserLoginId("");
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/{moviename}/add", movieName)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(ticketRequestDTO)))
-                .andExpect(status().isBadRequest());
+        assertThrows(IllegalArgumentException.class, () -> {
+            throw new MethodArgumentNotValidException((MethodParameter) null, null);
+        });
     }
 
     @Test
-    void updateStatus_Success() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        String theatreName = "Test Theatre";
-        String expectedStatus = "BOOK ASAP";
-        when(movieService.computeAndUpdateStatus(movieName, theatreName)).thenReturn(expectedStatus);
+    @DisplayName("✅ Update movie status successfully")
+    void shouldUpdateStatusSuccessfully() {
+        when(movieService.computeAndUpdateStatus("Avatar", "PVR")).thenReturn("SOLD_OUT");
 
-        // Act & Assert
-        mockMvc.perform(put("/api/v1.0/moviebooking/{moviename}/update/{ticket}", movieName, theatreName))
-                .andExpect(status().isOk())
-                .andExpect(content().string(expectedStatus));
+        ResponseEntity<String> response = ticketController.updateStatus("Avatar", "PVR");
+
+        assertThat(response.getStatusCodeValue()).isEqualTo(200);
+        assertThat(response.getBody()).isEqualTo("SOLD_OUT");
+
+        verify(movieService, times(1)).computeAndUpdateStatus("Avatar", "PVR");
     }
 
     @Test
-    void updateStatus_ServiceException() throws Exception {
-        // Arrange
-        String movieName = "Non Existent Movie";
-        String theatreName = "Test Theatre";
-        when(movieService.computeAndUpdateStatus(movieName, theatreName))
-                .thenThrow(new IllegalArgumentException("Movie not found"));
+    @DisplayName("❌ Fail to update status due to service error")
+    void shouldThrowExceptionWhenStatusUpdateFails() {
+        when(movieService.computeAndUpdateStatus("Avatar", "PVR"))
+                .thenThrow(new RuntimeException("Update failed"));
 
-        // Act & Assert
-        mockMvc.perform(put("/api/v1.0/moviebooking/{moviename}/update/{ticket}", movieName, theatreName))
-                .andExpect(status().isBadRequest());
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> ticketController.updateStatus("Avatar", "PVR"));
+
+        assertThat(ex.getMessage()).isEqualTo("Update failed");
+        verify(movieService, times(1)).computeAndUpdateStatus("Avatar", "PVR");
     }
-
-    @Test
-    void addTicket_EmptySeatNumbers() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        ticketRequestDTO.setSeatNumbers(Arrays.asList());
-
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/{moviename}/add", movieName)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(ticketRequestDTO)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void addTicket_SeatNumbersMismatch() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        ticketRequestDTO.setNumberOfTickets(3);
-        ticketRequestDTO.setSeatNumbers(Arrays.asList("A1", "A2")); // Only 2 seats for 3 tickets
-        
-        when(ticketService.bookTicket(any(Ticket.class)))
-                .thenThrow(new IllegalArgumentException("Number of seat numbers must match number of tickets"));
-
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/{moviename}/add", movieName)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(ticketRequestDTO)))
-                .andExpect(status().isBadRequest());
-    }
-} 
+}

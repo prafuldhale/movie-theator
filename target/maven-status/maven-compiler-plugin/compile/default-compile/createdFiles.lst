@@ -2,11 +2,13 @@ com\moviebookingapp\domain\Ticket$TicketBuilder.class
 com\moviebookingapp\dto\BookedInfoDTO.class
 com\moviebookingapp\controller\MovieController.class
 com\moviebookingapp\dto\UserRegistrationDTO.class
+com\moviebookingapp\config\TestConfig.class
 com\moviebookingapp\exception\ApiError$ApiErrorBuilder.class
 com\moviebookingapp\exception\ApiError.class
 com\moviebookingapp\service\TicketService.class
 com\moviebookingapp\domain\User$UserBuilder.class
 com\moviebookingapp\bootstrap\DataSeeder.class
+com\moviebookingapp\dto\UserRegistrationDTO$UserRegistrationDTOBuilder.class
 com\moviebookingapp\messaging\MessagingService.class
 com\moviebookingapp\dto\TicketRequestDTO.class
 com\moviebookingapp\controller\AdminController.class
@@ -27,4 +29,5 @@ com\moviebookingapp\exception\RestExceptionHandler.class
 com\moviebookingapp\controller\AuthController.class
 com\moviebookingapp\dto\LoginRequestDTO.class
 com\moviebookingapp\config\CommonConfig.class
+com\moviebookingapp\dto\TicketRequestDTO$TicketRequestDTOBuilder.class
 com\moviebookingapp\service\MovieService.class

@@ -6,23 +6,19 @@ import com.moviebookingapp.domain.Ticket;
 import com.moviebookingapp.repository.MovieRepository;
 import com.moviebookingapp.repository.TicketRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.*;
 import org.springframework.kafka.core.KafkaTemplate;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class TicketServiceTest {
 
     @Mock
@@ -37,181 +33,139 @@ class TicketServiceTest {
     @InjectMocks
     private TicketService ticketService;
 
-    private Ticket testTicket;
-    private Movie testMovie;
+    private Ticket ticket;
+    private Movie movie;
 
     @BeforeEach
     void setUp() {
-        testMovie = Movie.builder()
-                .id(1L)
-                .movieName("Test Movie")
-                .theatreName("Test Theatre")
-                .totalTickets(100)
-                .status("BOOK ASAP")
-                .build();
+        MockitoAnnotations.openMocks(this);
 
-        testTicket = Ticket.builder()
-                .id(1L)
-                .movieName("Test Movie")
-                .theatreName("Test Theatre")
+        ticket = Ticket.builder()
+                .movieName("Avatar")
+                .theatreName("PVR")
                 .numberOfTickets(2)
                 .seatNumbers(Arrays.asList("A1", "A2"))
+                .userLoginId("user123")
                 .build();
+
+        movie = new Movie();
+        movie.setMovieName("Avatar");
+        movie.setTheatreName("PVR");
+        movie.setTotalTickets(10);
     }
 
     @Test
-    void bookTicket_Success() {
-        // Arrange
-        when(movieRepository.findByMovieNameAndTheatreName("Test Movie", "Test Theatre"))
-                .thenReturn(Optional.of(testMovie));
-        when(ticketRepository.totalBookedForMovieAndTheatre("Test Movie", "Test Theatre"))
-                .thenReturn(50L);
-        when(ticketRepository.save(any(Ticket.class))).thenReturn(testTicket);
-        when(kafkaTemplate.send(anyString(), anyString())).thenReturn(null);
+    @DisplayName("✅ Should book ticket successfully")
+    void shouldBookTicketSuccessfully() {
+        when(movieRepository.findByMovieNameAndTheatreName("Avatar", "PVR")).thenReturn(Optional.of(movie));
+        when(ticketRepository.totalBookedForMovieAndTheatre("Avatar", "PVR")).thenReturn(3L);
+        when(ticketRepository.save(ticket)).thenReturn(ticket);
 
-        // Act
-        Ticket result = ticketService.bookTicket(testTicket);
+        Ticket result = ticketService.bookTicket(ticket);
 
-        // Assert
-        assertNotNull(result);
-        verify(ticketRepository).save(testTicket);
-        verify(kafkaTemplate).send(AppConstants.KAFKA_TOPIC_TICKETS, 
-                "Test Movie|Test Theatre|2");
+        assertThat(result).isEqualTo(ticket);
+        verify(ticketRepository).save(ticket);
+        verify(kafkaTemplate).send(eq(AppConstants.KAFKA_TOPIC_TICKETS), anyString());
     }
 
     @Test
-    void bookTicket_MovieNotFound() {
-        // Arrange
-        when(movieRepository.findByMovieNameAndTheatreName("Test Movie", "Test Theatre"))
-                .thenReturn(Optional.empty());
+    @DisplayName("❌ Should fail when numberOfTickets <= 0")
+    void shouldFailWhenNumberOfTicketsIsZeroOrNegative() {
+        ticket.setNumberOfTickets(0);
 
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> ticketService.bookTicket(ticket));
+
+        assertThat(ex.getMessage()).isEqualTo("Number of tickets must be positive");
+        verifyNoInteractions(movieRepository, ticketRepository, kafkaTemplate);
     }
 
     @Test
-    void bookTicket_NotEnoughTicketsAvailable() {
-        // Arrange
-        when(movieRepository.findByMovieNameAndTheatreName("Test Movie", "Test Theatre"))
-                .thenReturn(Optional.of(testMovie));
-        when(ticketRepository.totalBookedForMovieAndTheatre("Test Movie", "Test Theatre"))
-                .thenReturn(99L);
+    @DisplayName("❌ Should fail when seatNumbers is null")
+    void shouldFailWhenSeatNumbersIsNull() {
+        ticket.setSeatNumbers(null);
 
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> ticketService.bookTicket(ticket));
+
+        assertThat(ex.getMessage()).isEqualTo("Seat numbers must be provided");
+        verifyNoInteractions(movieRepository, ticketRepository, kafkaTemplate);
     }
 
     @Test
-    void bookTicket_NoPreviousBookings() {
-        // Arrange
-        when(movieRepository.findByMovieNameAndTheatreName("Test Movie", "Test Theatre"))
-                .thenReturn(Optional.of(testMovie));
-        when(ticketRepository.totalBookedForMovieAndTheatre("Test Movie", "Test Theatre"))
-                .thenReturn(null);
-        when(ticketRepository.save(any(Ticket.class))).thenReturn(testTicket);
-        when(kafkaTemplate.send(anyString(), anyString())).thenReturn(null);
+    @DisplayName("❌ Should fail when seatNumbers is empty")
+    void shouldFailWhenSeatNumbersIsEmpty() {
+        ticket.setSeatNumbers(Arrays.asList());
 
-        // Act
-        Ticket result = ticketService.bookTicket(testTicket);
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> ticketService.bookTicket(ticket));
 
-        // Assert
-        assertNotNull(result);
-        verify(ticketRepository).save(testTicket);
+        assertThat(ex.getMessage()).isEqualTo("Seat numbers must be provided");
+        verifyNoInteractions(movieRepository, ticketRepository, kafkaTemplate);
     }
 
     @Test
-    void bookTicket_ZeroTickets() {
-        // Arrange
-        testTicket.setNumberOfTickets(0);
+    @DisplayName("❌ Should fail when seatNumbers count does not match numberOfTickets")
+    void shouldFailWhenSeatNumbersCountMismatch() {
+        ticket.setSeatNumbers(Arrays.asList("A1"));
 
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> ticketService.bookTicket(ticket));
+
+        assertThat(ex.getMessage()).isEqualTo("Number of seat numbers must match number of tickets");
+        verifyNoInteractions(movieRepository, ticketRepository, kafkaTemplate);
     }
 
     @Test
-    void bookTicket_NegativeTickets() {
-        // Arrange
-        testTicket.setNumberOfTickets(-1);
+    @DisplayName("❌ Should fail when seatNumbers contain duplicates")
+    void shouldFailWhenSeatNumbersContainDuplicates() {
+        ticket.setSeatNumbers(Arrays.asList("A1", "A1"));
 
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> ticketService.bookTicket(ticket));
+
+        assertThat(ex.getMessage()).isEqualTo("Duplicate seat numbers are not allowed");
+        verifyNoInteractions(movieRepository, ticketRepository, kafkaTemplate);
     }
 
     @Test
-    void bookTicket_NullSeatNumbers() {
-        // Arrange
-        testTicket.setSeatNumbers(null);
+    @DisplayName("❌ Should fail when movie/theatre not found")
+    void shouldFailWhenMovieNotFound() {
+        when(movieRepository.findByMovieNameAndTheatreName("Avatar", "PVR")).thenReturn(Optional.empty());
 
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> ticketService.bookTicket(ticket));
+
+        assertThat(ex.getMessage()).isEqualTo("Movie/Theatre not found");
+        verify(movieRepository).findByMovieNameAndTheatreName("Avatar", "PVR");
+        verifyNoInteractions(ticketRepository, kafkaTemplate);
     }
 
     @Test
-    void bookTicket_EmptySeatNumbers() {
-        // Arrange
-        testTicket.setSeatNumbers(Arrays.asList());
+    @DisplayName("❌ Should fail when not enough tickets available")
+    void shouldFailWhenNotEnoughTicketsAvailable() {
+        when(movieRepository.findByMovieNameAndTheatreName("Avatar", "PVR")).thenReturn(Optional.of(movie));
+        when(ticketRepository.totalBookedForMovieAndTheatre("Avatar", "PVR")).thenReturn(9L);
 
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> ticketService.bookTicket(ticket));
+
+        assertThat(ex.getMessage()).isEqualTo("Not enough tickets available");
+        verify(ticketRepository, never()).save(any());
+        verify(kafkaTemplate, never()).send(any(), any());
     }
 
     @Test
-    void bookTicket_SeatNumbersMismatch() {
-        // Arrange
-        testTicket.setNumberOfTickets(3);
-        testTicket.setSeatNumbers(Arrays.asList("A1", "A2")); // Only 2 seats for 3 tickets
+    @DisplayName("❌ Should propagate exception from repository save")
+    void shouldPropagateExceptionFromSave() {
+        when(movieRepository.findByMovieNameAndTheatreName("Avatar", "PVR")).thenReturn(Optional.of(movie));
+        when(ticketRepository.totalBookedForMovieAndTheatre("Avatar", "PVR")).thenReturn(0L);
+        when(ticketRepository.save(ticket)).thenThrow(new RuntimeException("DB error"));
 
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> ticketService.bookTicket(ticket));
+
+        assertThat(ex.getMessage()).isEqualTo("DB error");
+        verify(kafkaTemplate, never()).send(any(), any());
     }
-
-    @Test
-    void bookTicket_DuplicateSeatNumbers() {
-        // Arrange
-        testTicket.setSeatNumbers(Arrays.asList("A1", "A1")); // Duplicate seats
-
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
-    }
-
-    @Test
-    void bookTicket_ExactCapacity() {
-        // Arrange
-        testMovie.setTotalTickets(50);
-        when(movieRepository.findByMovieNameAndTheatreName("Test Movie", "Test Theatre"))
-                .thenReturn(Optional.of(testMovie));
-        when(ticketRepository.totalBookedForMovieAndTheatre("Test Movie", "Test Theatre"))
-                .thenReturn(48L); // 48 + 2 = 50 (exact capacity)
-        when(ticketRepository.save(any(Ticket.class))).thenReturn(testTicket);
-        when(kafkaTemplate.send(anyString(), anyString())).thenReturn(null);
-
-        // Act
-        Ticket result = ticketService.bookTicket(testTicket);
-
-        // Assert
-        assertNotNull(result);
-        verify(ticketRepository).save(testTicket);
-    }
-
-    @Test
-    void bookTicket_OverCapacity() {
-        // Arrange
-        testMovie.setTotalTickets(50);
-        when(movieRepository.findByMovieNameAndTheatreName("Test Movie", "Test Theatre"))
-                .thenReturn(Optional.of(testMovie));
-        when(ticketRepository.totalBookedForMovieAndTheatre("Test Movie", "Test Theatre"))
-                .thenReturn(49L); // 49 + 2 = 51 (over capacity)
-
-        // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> 
-            ticketService.bookTicket(testTicket));
-    }
-} 
+}

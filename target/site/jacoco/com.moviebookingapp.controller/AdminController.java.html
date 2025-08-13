@@ -3,7 +3,8 @@
 import com.moviebookingapp.domain.Movie;
 import com.moviebookingapp.service.MovieService;
 import com.moviebookingapp.dto.BookedInfoDTO;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,24 +13,38 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping(&quot;/api/v1.0/moviebooking&quot;)
+<span class="fc" id="L16">@RequiredArgsConstructor</span>
+<span class="fc" id="L17">@Slf4j</span>
 public class AdminController {
     private final MovieService movieService;
-
-    @Autowired
-<span class="fc" id="L19">    public AdminController(MovieService movieService) {</span>
-<span class="fc" id="L20">        this.movieService = movieService;</span>
-<span class="fc" id="L21">    }</span>
 
     @GetMapping(&quot;/{moviename}/booked/{theatre}&quot;)
     public ResponseEntity&lt;BookedInfoDTO&gt; booked(@PathVariable(&quot;moviename&quot;) String moviename,
                                              @PathVariable(&quot;theatre&quot;) String theatre) {
-<span class="fc" id="L26">        int booked = movieService.bookedCount(moviename, theatre);</span>
-<span class="fc" id="L27">        Movie movie = movieService.searchMovies(moviename).stream()</span>
-<span class="fc" id="L28">                .filter(m -&gt; m.getTheatreName().equalsIgnoreCase(theatre))</span>
-<span class="fc" id="L29">                .findFirst().orElseThrow(() -&gt; new IllegalArgumentException(&quot;Movie not found&quot;));</span>
-<span class="fc" id="L30">        int remaining = movie.getTotalTickets() - booked;</span>
-<span class="fc bfc" id="L31" title="All 2 branches covered.">        String status = remaining &lt;= 0 ? &quot;SOLD OUT&quot; : &quot;BOOK ASAP&quot;;</span>
-<span class="fc" id="L32">        return ResponseEntity.ok(new BookedInfoDTO(booked, Math.max(remaining, 0), status));</span>
+<span class="fc" id="L24">        log.info(&quot;Admin request for booked info - movie: {}, theatre: {}&quot;, moviename, theatre);</span>
+
+        try {
+<span class="fc" id="L27">            int booked = movieService.bookedCount(moviename, theatre);</span>
+<span class="fc" id="L28">            log.debug(&quot;Booked count for movie: {} at theatre: {} is {}&quot;, moviename, theatre, booked);</span>
+
+<span class="fc" id="L30">            Movie movie = movieService.searchMovies(moviename).stream()</span>
+<span class="fc" id="L31">                    .filter(m -&gt; m.getTheatreName().equalsIgnoreCase(theatre))</span>
+<span class="fc" id="L32">                    .findFirst().orElseThrow(() -&gt; new IllegalArgumentException(&quot;Movie not found&quot;));</span>
+
+<span class="fc" id="L34">            int remaining = movie.getTotalTickets() - booked;</span>
+<span class="fc bfc" id="L35" title="All 2 branches covered.">            String status = remaining &lt;= 0 ? &quot;SOLD OUT&quot; : &quot;BOOK ASAP&quot;;</span>
+
+<span class="fc" id="L37">            BookedInfoDTO bookedInfo = new BookedInfoDTO(booked, Math.max(remaining, 0), status);</span>
+
+<span class="fc" id="L39">            log.info(&quot;Booked info retrieved successfully - movie: {}, theatre: {}, booked: {}, remaining: {}, status: {}&quot;,</span>
+<span class="fc" id="L40">                    moviename, theatre, booked, remaining, status);</span>
+
+<span class="fc" id="L42">            return ResponseEntity.ok(bookedInfo);</span>
+<span class="fc" id="L43">        } catch (Exception e) {</span>
+<span class="fc" id="L44">            log.error(&quot;Error retrieving booked info for movie: {} at theatre: {}, error: {}&quot;,</span>
+<span class="fc" id="L45">                     moviename, theatre, e.getMessage(), e);</span>
+<span class="fc" id="L46">            throw e;</span>
+        }
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

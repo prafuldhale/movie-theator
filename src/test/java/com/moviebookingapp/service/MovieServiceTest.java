@@ -11,16 +11,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class MovieServiceTest {
+class MovieServiceTest{
 
     @Mock
     private MovieRepository movieRepository;
@@ -36,7 +38,6 @@ class MovieServiceTest {
     @BeforeEach
     void setUp() {
         testMovie = Movie.builder()
-                .id(1L)
                 .movieName("Test Movie")
                 .theatreName("Test Theatre")
                 .totalTickets(100)
@@ -45,32 +46,44 @@ class MovieServiceTest {
     }
 
     @Test
-    void getAllMovies_Success() {
-        // Arrange
-        List<Movie> expectedMovies = Arrays.asList(testMovie);
-        when(movieRepository.findAll()).thenReturn(expectedMovies);
+    void getAllMovies_ShouldReturnEmptyList_WhenNoMovies() {
+        when(movieRepository.findAll()).thenReturn(Collections.emptyList());
 
-        // Act
         List<Movie> result = movieService.getAllMovies();
-
-        // Assert
-        assertEquals(expectedMovies, result);
+        assertTrue(result.isEmpty());
         verify(movieRepository).findAll();
     }
 
     @Test
-    void searchMovies_Success() {
-        // Arrange
-        String searchTerm = "Test";
-        List<Movie> expectedMovies = Arrays.asList(testMovie);
-        when(movieRepository.findByMovieNameContainingIgnoreCase(searchTerm)).thenReturn(expectedMovies);
+    void getAllMovies_ShouldReturnAllMovies() {
+        List<Movie> movies = Arrays.asList(
+            testMovie,
+            Movie.builder()
+                .movieName("Another Movie")
+                .theatreName("Another Theatre")
+                .totalTickets(50)
+                .status("BOOK ASAP")
+                .build()
+        );
 
-        // Act
-        List<Movie> result = movieService.searchMovies(searchTerm);
+        when(movieRepository.findAll()).thenReturn(movies);
 
-        // Assert
-        assertEquals(expectedMovies, result);
-        verify(movieRepository).findByMovieNameContainingIgnoreCase(searchTerm);
+        List<Movie> result = movieService.getAllMovies();
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting("movieName")
+                .containsExactlyInAnyOrder("Test Movie", "Another Movie");
+        verify(movieRepository).findAll();
+    }
+
+    @Test
+    void searchMovies_ShouldReturnMatchingMovies() {
+        when(movieRepository.findByMovieNameContainingIgnoreCase(anyString()))
+            .thenReturn(Collections.singletonList(testMovie));
+
+        List<Movie> result = movieService.searchMovies("Test Movie");
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getTheatreName()).isEqualTo("Test Theatre");
+        verify(movieRepository).findByMovieNameContainingIgnoreCase("Test Movie");
     }
 
     @Test
@@ -275,4 +288,4 @@ class MovieServiceTest {
         assertThrows(IllegalArgumentException.class, () -> 
             movieService.deleteMovie(movieName, theatreName));
     }
-} 
+}

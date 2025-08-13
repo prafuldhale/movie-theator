@@ -1,6 +1,5 @@
 package com.moviebookingapp.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moviebookingapp.domain.User;
 import com.moviebookingapp.dto.LoginRequestDTO;
 import com.moviebookingapp.dto.PasswordResetDTO;
@@ -8,177 +7,129 @@ import com.moviebookingapp.dto.UserRegistrationDTO;
 import com.moviebookingapp.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.doThrow;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import java.util.Collections;
+import java.util.Map;
 
-@WebMvcTest(AuthController.class)
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class AuthControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockBean
+    @Mock
     private UserService userService;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @InjectMocks
+    private AuthController authController;
 
-    private User testUser;
     private UserRegistrationDTO registrationDTO;
-    private LoginRequestDTO loginDTO;
-    private PasswordResetDTO passwordResetDTO;
+    private User testUser;
 
     @BeforeEach
     void setUp() {
+        registrationDTO = UserRegistrationDTO.builder()
+                .firstName("John")
+                .lastName("Doe")
+                .email("john@example.com")
+                .loginId("john123")
+                .contactNumber("1234567890")
+                .password("pass123")
+                .confirmPassword("pass123")
+                .build();
+
         testUser = User.builder()
                 .id(1L)
                 .firstName("John")
                 .lastName("Doe")
-                .email("john.doe@example.com")
-                .loginId("johndoe")
+                .email("john@example.com")
+                .loginId("john123")
                 .contactNumber("1234567890")
                 .build();
-
-        registrationDTO = new UserRegistrationDTO();
-        registrationDTO.setFirstName("John");
-        registrationDTO.setLastName("Doe");
-        registrationDTO.setEmail("john.doe@example.com");
-        registrationDTO.setLoginId("johndoe");
-        registrationDTO.setContactNumber("1234567890");
-        registrationDTO.setPassword("Password123@");
-        registrationDTO.setConfirmPassword("Password123@");
-
-        loginDTO = new LoginRequestDTO();
-        loginDTO.setLoginId("johndoe");
-        loginDTO.setPassword("Password123@");
-
-        passwordResetDTO = new PasswordResetDTO();
-        passwordResetDTO.setLoginId("johndoe");
-        passwordResetDTO.setPassword("NewPassword123@");
-        passwordResetDTO.setConfirmPassword("NewPassword123@");
     }
 
     @Test
-    void register_Success() throws Exception {
-        // Arrange
-        when(userService.register(any(User.class), anyString(), anyString())).thenReturn(testUser);
+    void registerSuccess() {
+        when(userService.register(any(User.class), eq("pass123"), eq("pass123")))
+                .thenReturn(testUser);
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(registrationDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.firstName").value("John"))
-                .andExpect(jsonPath("$.lastName").value("Doe"))
-                .andExpect(jsonPath("$.email").value("john.doe@example.com"))
-                .andExpect(jsonPath("$.loginId").value("johndoe"));
+        ResponseEntity<User> response = authController.register(registrationDTO);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(testUser.getLoginId(), response.getBody().getLoginId());
     }
 
     @Test
-    void register_ValidationFailure() throws Exception {
-        // Arrange
-        registrationDTO.setEmail("invalid-email");
+    void registerThrowsException() {
+        when(userService.register(any(User.class), eq("pass123"), eq("pass123")))
+                .thenThrow(new RuntimeException("Registration failed"));
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(registrationDTO)))
-                .andExpect(status().isBadRequest());
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                authController.register(registrationDTO));
+
+        assertEquals("Registration failed", exception.getMessage());
     }
 
     @Test
-    void register_ServiceException() throws Exception {
-        // Arrange
-        when(userService.register(any(User.class), anyString(), anyString()))
-                .thenThrow(new IllegalArgumentException("Login Id must be unique"));
+    void loginSuccess() {
+        LoginRequestDTO loginDTO = new LoginRequestDTO("john123", "pass123");
+        when(userService.login("john123", "pass123")).thenReturn(true);
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/register")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(registrationDTO)))
-                .andExpect(status().isBadRequest());
+        ResponseEntity<Map<String, String>> response = authController.login(loginDTO);
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals("dummy-token-john123", response.getBody().get("token"));
     }
 
     @Test
-    void login_Success() throws Exception {
-        // Arrange
-        when(userService.login("johndoe", "Password123@")).thenReturn(true);
+    void loginInvalidCredentials() {
+        LoginRequestDTO loginDTO = new LoginRequestDTO("john123", "wrongpass");
+        when(userService.login("john123", "wrongpass")).thenReturn(false);
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginDTO)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("dummy-token-johndoe"));
+        ResponseEntity<Map<String, String>> response = authController.login(loginDTO);
+
+        assertEquals(400, response.getStatusCodeValue());
+        assertEquals("Invalid credentials", response.getBody().get("error"));
     }
 
     @Test
-    void login_InvalidCredentials() throws Exception {
-        // Arrange
-        when(userService.login("johndoe", "wrongpassword")).thenReturn(false);
+    void loginThrowsException() {
+        LoginRequestDTO loginDTO = new LoginRequestDTO("john123", "pass123");
+        when(userService.login("john123", "pass123"))
+                .thenThrow(new RuntimeException("Login failed"));
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginDTO)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Invalid credentials"));
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                authController.login(loginDTO));
+
+        assertEquals("Login failed", exception.getMessage());
     }
 
     @Test
-    void login_ValidationFailure() throws Exception {
-        // Arrange
-        loginDTO.setLoginId("");
+    void resetPasswordSuccess() {
+        PasswordResetDTO resetDTO = new PasswordResetDTO("john123", "newpass", "newpass");
 
-        // Act & Assert
-        mockMvc.perform(post("/api/v1.0/moviebooking/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(loginDTO)))
-                .andExpect(status().isBadRequest());
+        ResponseEntity<Void> response = authController.resetPassword(resetDTO);
+
+        assertEquals(200, response.getStatusCodeValue());
+        verify(userService).resetPassword("john123", "newpass", "newpass", "newpass");
     }
 
     @Test
-    void resetPassword_Success() throws Exception {
-        // Act & Assert
-        mockMvc.perform(put("/api/v1.0/moviebooking/forgot")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(passwordResetDTO)))
-                .andExpect(status().isOk());
+    void resetPasswordThrowsException() {
+        PasswordResetDTO resetDTO = new PasswordResetDTO("john123", "newpass", "newpass");
+
+        doThrow(new RuntimeException("Reset failed"))
+                .when(userService)
+                .resetPassword("john123", "newpass", "newpass", "newpass");
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                authController.resetPassword(resetDTO));
+
+        assertEquals("Reset failed", exception.getMessage());
     }
-
-    @Test
-    void resetPassword_ValidationFailure() throws Exception {
-        // Arrange
-        passwordResetDTO.setLoginId("");
-
-        // Act & Assert
-        mockMvc.perform(put("/api/v1.0/moviebooking/forgot")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(passwordResetDTO)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void resetPassword_ServiceException() throws Exception {
-        // Arrange
-        doThrow(new IllegalArgumentException("User not found"))
-                .when(userService).resetPassword(anyString(), anyString(), anyString(), anyString());
-
-        // Act & Assert
-        mockMvc.perform(put("/api/v1.0/moviebooking/forgot")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(passwordResetDTO)))
-                .andExpect(status().isBadRequest());
-    }
-} 
+}

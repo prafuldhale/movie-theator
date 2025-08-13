@@ -6,46 +6,98 @@ import com.moviebookingapp.domain.Ticket;
 import com.moviebookingapp.repository.MovieRepository;
 import com.moviebookingapp.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 
 @Service
-<span class="fc" id="L15">@RequiredArgsConstructor</span>
+<span class="fc" id="L16">@RequiredArgsConstructor</span>
+<span class="fc" id="L17">@Slf4j</span>
 public class TicketService {
     private final TicketRepository ticketRepository;
     private final MovieRepository movieRepository;
     private final KafkaTemplate&lt;String, String&gt; kafkaTemplate;
 
     public Ticket bookTicket(Ticket ticket) {
-<span class="fc" id="L22">        validateTicket(ticket);</span>
-<span class="fc" id="L23">        Movie movie = movieRepository.findByMovieNameAndTheatreName(ticket.getMovieName(), ticket.getTheatreName())</span>
-<span class="fc" id="L24">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Movie/Theatre not found&quot;));</span>
-<span class="fc" id="L25">        Long alreadyBookedLong = ticketRepository.totalBookedForMovieAndTheatre(ticket.getMovieName(), ticket.getTheatreName());</span>
-<span class="fc bfc" id="L26" title="All 2 branches covered.">        int alreadyBooked = alreadyBookedLong == null ? 0 : alreadyBookedLong.intValue();</span>
-<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (alreadyBooked + ticket.getNumberOfTickets() &gt; movie.getTotalTickets()) {</span>
-<span class="fc" id="L28">            throw new IllegalArgumentException(&quot;Not enough tickets available&quot;);</span>
+<span class="fc" id="L24">        log.debug(&quot;Starting ticket booking process for movie: {} at theatre: {} by user: {}&quot;, </span>
+<span class="fc" id="L25">                ticket.getMovieName(), ticket.getTheatreName(), ticket.getUserLoginId());</span>
+<span class="fc" id="L26">        log.debug(&quot;Ticket details - numberOfTickets: {}, seatNumbers: {}&quot;, </span>
+<span class="fc" id="L27">                ticket.getNumberOfTickets(), ticket.getSeatNumbers());</span>
+        
+        try {
+<span class="fc" id="L30">            log.debug(&quot;Validating ticket data&quot;);</span>
+<span class="fc" id="L31">            validateTicket(ticket);</span>
+            
+<span class="fc" id="L33">            log.debug(&quot;Finding movie: {} at theatre: {}&quot;, ticket.getMovieName(), ticket.getTheatreName());</span>
+<span class="fc" id="L34">            Movie movie = movieRepository.findByMovieNameAndTheatreName(ticket.getMovieName(), ticket.getTheatreName())</span>
+<span class="fc" id="L35">                    .orElseThrow(() -&gt; {</span>
+<span class="fc" id="L36">                        log.warn(&quot;Movie/Theatre not found for ticket booking - movie: {}, theatre: {}&quot;, </span>
+<span class="fc" id="L37">                                ticket.getMovieName(), ticket.getTheatreName());</span>
+<span class="fc" id="L38">                        return new IllegalArgumentException(&quot;Movie/Theatre not found&quot;);</span>
+                    });
+            
+<span class="fc" id="L41">            log.debug(&quot;Calculating already booked tickets for movie: {} at theatre: {}&quot;, </span>
+<span class="fc" id="L42">                    ticket.getMovieName(), ticket.getTheatreName());</span>
+<span class="fc" id="L43">            Long alreadyBookedLong = ticketRepository.totalBookedForMovieAndTheatre(ticket.getMovieName(), ticket.getTheatreName());</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">            int alreadyBooked = alreadyBookedLong == null ? 0 : alreadyBookedLong.intValue();</span>
+            
+<span class="fc" id="L46">            log.debug(&quot;Ticket availability check - totalTickets: {}, alreadyBooked: {}, requested: {}, available: {}&quot;, </span>
+<span class="fc" id="L47">                    movie.getTotalTickets(), alreadyBooked, ticket.getNumberOfTickets(), </span>
+<span class="fc" id="L48">                    movie.getTotalTickets() - alreadyBooked);</span>
+            
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            if (alreadyBooked + ticket.getNumberOfTickets() &gt; movie.getTotalTickets()) {</span>
+<span class="fc" id="L51">                log.warn(&quot;Insufficient tickets available - requested: {}, available: {}&quot;, </span>
+<span class="fc" id="L52">                        ticket.getNumberOfTickets(), movie.getTotalTickets() - alreadyBooked);</span>
+<span class="fc" id="L53">                throw new IllegalArgumentException(&quot;Not enough tickets available&quot;);</span>
+            }
+            
+<span class="fc" id="L56">            log.debug(&quot;Saving ticket to database&quot;);</span>
+<span class="fc" id="L57">            Ticket saved = ticketRepository.save(ticket);</span>
+            
+<span class="fc" id="L59">            log.debug(&quot;Sending ticket booking message to Kafka&quot;);</span>
+<span class="fc" id="L60">            String kafkaMessage = ticket.getMovieName() + &quot;|&quot; + ticket.getTheatreName() + &quot;|&quot; + ticket.getNumberOfTickets();</span>
+<span class="fc" id="L61">            kafkaTemplate.send(AppConstants.KAFKA_TOPIC_TICKETS, kafkaMessage);</span>
+            
+<span class="fc" id="L63">            log.info(&quot;Ticket booked successfully - id: {}, movie: {}, theatre: {}, user: {}, tickets: {}&quot;, </span>
+<span class="fc" id="L64">                    saved.getId(), ticket.getMovieName(), ticket.getTheatreName(), </span>
+<span class="fc" id="L65">                    ticket.getUserLoginId(), ticket.getNumberOfTickets());</span>
+            
+<span class="fc" id="L67">            return saved;</span>
+<span class="fc" id="L68">        } catch (Exception e) {</span>
+<span class="fc" id="L69">            log.error(&quot;Ticket booking failed for movie: {} at theatre: {} by user: {}, error: {}&quot;, </span>
+<span class="fc" id="L70">                     ticket.getMovieName(), ticket.getTheatreName(), ticket.getUserLoginId(), e.getMessage(), e);</span>
+<span class="fc" id="L71">            throw e;</span>
         }
-<span class="fc" id="L30">        Ticket saved = ticketRepository.save(ticket);</span>
-<span class="fc" id="L31">        kafkaTemplate.send(AppConstants.KAFKA_TOPIC_TICKETS,</span>
-<span class="fc" id="L32">                ticket.getMovieName() + &quot;|&quot; + ticket.getTheatreName() + &quot;|&quot; + ticket.getNumberOfTickets());</span>
-<span class="fc" id="L33">        return saved;</span>
     }
 
     private void validateTicket(Ticket ticket) {
-<span class="fc bfc" id="L37" title="All 2 branches covered.">        if (ticket.getNumberOfTickets() &lt;= 0) {</span>
-<span class="fc" id="L38">            throw new IllegalArgumentException(&quot;Number of tickets must be positive&quot;);</span>
+<span class="fc" id="L76">        log.debug(&quot;Validating ticket - numberOfTickets: {}, seatNumbers: {}&quot;, </span>
+<span class="fc" id="L77">                ticket.getNumberOfTickets(), ticket.getSeatNumbers());</span>
+        
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        if (ticket.getNumberOfTickets() &lt;= 0) {</span>
+<span class="fc" id="L80">            log.warn(&quot;Invalid number of tickets: {}&quot;, ticket.getNumberOfTickets());</span>
+<span class="fc" id="L81">            throw new IllegalArgumentException(&quot;Number of tickets must be positive&quot;);</span>
         }
-<span class="fc bfc" id="L40" title="All 4 branches covered.">        if (ticket.getSeatNumbers() == null || ticket.getSeatNumbers().isEmpty()) {</span>
-<span class="fc" id="L41">            throw new IllegalArgumentException(&quot;Seat numbers must be provided&quot;);</span>
+        
+<span class="fc bfc" id="L84" title="All 4 branches covered.">        if (ticket.getSeatNumbers() == null || ticket.getSeatNumbers().isEmpty()) {</span>
+<span class="fc" id="L85">            log.warn(&quot;No seat numbers provided for ticket booking&quot;);</span>
+<span class="fc" id="L86">            throw new IllegalArgumentException(&quot;Seat numbers must be provided&quot;);</span>
         }
-<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (ticket.getSeatNumbers().size() != ticket.getNumberOfTickets()) {</span>
-<span class="fc" id="L44">            throw new IllegalArgumentException(&quot;Number of seat numbers must match number of tickets&quot;);</span>
+        
+<span class="fc bfc" id="L89" title="All 2 branches covered.">        if (ticket.getSeatNumbers().size() != ticket.getNumberOfTickets()) {</span>
+<span class="fc" id="L90">            log.warn(&quot;Seat numbers mismatch - numberOfTickets: {}, seatNumbersCount: {}&quot;, </span>
+<span class="fc" id="L91">                    ticket.getNumberOfTickets(), ticket.getSeatNumbers().size());</span>
+<span class="fc" id="L92">            throw new IllegalArgumentException(&quot;Number of seat numbers must match number of tickets&quot;);</span>
         }
-<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (new HashSet&lt;&gt;(ticket.getSeatNumbers()).size() != ticket.getSeatNumbers().size()) {</span>
-<span class="fc" id="L47">            throw new IllegalArgumentException(&quot;Duplicate seat numbers are not allowed&quot;);</span>
+        
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (new HashSet&lt;&gt;(ticket.getSeatNumbers()).size() != ticket.getSeatNumbers().size()) {</span>
+<span class="fc" id="L96">            log.warn(&quot;Duplicate seat numbers detected: {}&quot;, ticket.getSeatNumbers());</span>
+<span class="fc" id="L97">            throw new IllegalArgumentException(&quot;Duplicate seat numbers are not allowed&quot;);</span>
         }
-<span class="fc" id="L49">    }</span>
+        
+<span class="fc" id="L100">        log.debug(&quot;Ticket validation passed successfully&quot;);</span>
+<span class="fc" id="L101">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

@@ -5,66 +5,119 @@ import com.moviebookingapp.repository.MovieRepository;
 import com.moviebookingapp.repository.TicketRepository;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
-<span class="fc" id="L13">@RequiredArgsConstructor</span>
+<span class="fc" id="L14">@RequiredArgsConstructor</span>
+<span class="fc" id="L15">@Slf4j</span>
 public class MovieService {
     private final MovieRepository movieRepository;
     private final TicketRepository ticketRepository;
 
     public List&lt;Movie&gt; getAllMovies() {
-<span class="fc" id="L19">        return movieRepository.findAll();</span>
+<span class="fc" id="L21">        log.debug(&quot;Retrieving all movies from database&quot;);</span>
+<span class="fc" id="L22">        List&lt;Movie&gt; movies = movieRepository.findAll();</span>
+<span class="fc" id="L23">        log.info(&quot;Retrieved {} movies from database&quot;, movies.size());</span>
+<span class="fc" id="L24">        return movies;</span>
     }
 
     public List&lt;Movie&gt; searchMovies(String name) {
-<span class="fc" id="L23">        return movieRepository.findByMovieNameContainingIgnoreCase(name);</span>
+<span class="fc" id="L28">        log.debug(&quot;Searching movies with name containing: {}&quot;, name);</span>
+<span class="fc" id="L29">        List&lt;Movie&gt; movies = movieRepository.findByMovieNameContainingIgnoreCase(name);</span>
+<span class="fc" id="L30">        log.info(&quot;Found {} movies matching search term: {}&quot;, movies.size(), name);</span>
+<span class="fc" id="L31">        return movies;</span>
     }
 
     public Movie addMovie(Movie movie) {
-<span class="fc" id="L27">        return movieRepository.save(movie);</span>
+<span class="fc" id="L35">        log.debug(&quot;Adding new movie: {} at theatre: {}&quot;, movie.getMovieName(), movie.getTheatreName());</span>
+<span class="fc" id="L36">        log.debug(&quot;Movie details - totalTickets: {}, status: {}&quot;, movie.getTotalTickets(), movie.getStatus());</span>
+        
+<span class="fc" id="L38">        Movie savedMovie = movieRepository.save(movie);</span>
+<span class="fc" id="L39">        log.info(&quot;Movie added successfully - id: {}, name: {}, theatre: {}&quot;, </span>
+<span class="fc" id="L40">                savedMovie.getId(), savedMovie.getMovieName(), savedMovie.getTheatreName());</span>
+<span class="fc" id="L41">        return savedMovie;</span>
     }
 
     public void deleteMovieById(Long id) {
-<span class="fc" id="L31">        movieRepository.deleteById(id);</span>
-<span class="fc" id="L32">    }</span>
+<span class="fc" id="L45">        log.debug(&quot;Deleting movie with id: {}&quot;, id);</span>
+<span class="fc" id="L46">        movieRepository.deleteById(id);</span>
+<span class="fc" id="L47">        log.info(&quot;Movie deleted successfully - id: {}&quot;, id);</span>
+<span class="fc" id="L48">    }</span>
 
     public int bookedCount(String movieName, String theatreName) {
-<span class="fc" id="L35">        Long total = ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName);</span>
-<span class="fc bfc" id="L36" title="All 2 branches covered.">        return total == null ? 0 : total.intValue();</span>
+<span class="fc" id="L51">        log.debug(&quot;Calculating booked count for movie: {} at theatre: {}&quot;, movieName, theatreName);</span>
+<span class="fc" id="L52">        Long total = ticketRepository.totalBookedForMovieAndTheatre(movieName, theatreName);</span>
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        int bookedCount = total == null ? 0 : total.intValue();</span>
+<span class="fc" id="L54">        log.debug(&quot;Booked count for movie: {} at theatre: {} is {}&quot;, movieName, theatreName, bookedCount);</span>
+<span class="fc" id="L55">        return bookedCount;</span>
     }
 
     public String computeAndUpdateStatus(String movieName, String theatreName) {
-<span class="fc" id="L40">        Movie movie = movieRepository.findByMovieNameAndTheatreName(movieName, theatreName)</span>
-<span class="fc" id="L41">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Movie not found&quot;));</span>
-<span class="fc" id="L42">        int booked = bookedCount(movieName, theatreName);</span>
-<span class="fc" id="L43">        int remaining = movie.getTotalTickets() - booked;</span>
-<span class="fc bfc" id="L44" title="All 2 branches covered.">        String status = remaining &lt;= 0 ? &quot;SOLD OUT&quot; : &quot;BOOK ASAP&quot;;</span>
-<span class="fc" id="L45">        movie.setStatus(status);</span>
-<span class="fc" id="L46">        movieRepository.save(movie);</span>
-<span class="fc" id="L47">        return status;</span>
+<span class="fc" id="L59">        log.debug(&quot;Computing and updating status for movie: {} at theatre: {}&quot;, movieName, theatreName);</span>
+        
+<span class="fc" id="L61">        Movie movie = movieRepository.findByMovieNameAndTheatreName(movieName, theatreName)</span>
+<span class="fc" id="L62">                .orElseThrow(() -&gt; {</span>
+<span class="fc" id="L63">                    log.warn(&quot;Movie not found for status update - name: {}, theatre: {}&quot;, movieName, theatreName);</span>
+<span class="fc" id="L64">                    return new IllegalArgumentException(&quot;Movie not found&quot;);</span>
+                });
+        
+<span class="fc" id="L67">        int booked = bookedCount(movieName, theatreName);</span>
+<span class="fc" id="L68">        int remaining = movie.getTotalTickets() - booked;</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        String status = remaining &lt;= 0 ? &quot;SOLD OUT&quot; : &quot;BOOK ASAP&quot;;</span>
+        
+<span class="fc" id="L71">        log.debug(&quot;Status calculation - totalTickets: {}, booked: {}, remaining: {}, newStatus: {}&quot;, </span>
+<span class="fc" id="L72">                movie.getTotalTickets(), booked, remaining, status);</span>
+        
+<span class="fc" id="L74">        movie.setStatus(status);</span>
+<span class="fc" id="L75">        movieRepository.save(movie);</span>
+        
+<span class="fc" id="L77">        log.info(&quot;Status updated for movie: {} at theatre: {} - new status: {}&quot;, movieName, theatreName, status);</span>
+<span class="fc" id="L78">        return status;</span>
     }
 
     public Movie updateTotalTickets(String movieName, String theatreName, int total) {
-<span class="fc bfc" id="L51" title="All 2 branches covered.">        if (total &lt; 0) {</span>
-<span class="fc" id="L52">            throw new IllegalArgumentException(&quot;Total tickets must be non-negative&quot;);</span>
+<span class="fc" id="L82">        log.debug(&quot;Updating total tickets for movie: {} at theatre: {} to: {}&quot;, movieName, theatreName, total);</span>
+        
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (total &lt; 0) {</span>
+<span class="fc" id="L85">            log.warn(&quot;Invalid total tickets value: {} for movie: {} at theatre: {}&quot;, total, movieName, theatreName);</span>
+<span class="fc" id="L86">            throw new IllegalArgumentException(&quot;Total tickets must be non-negative&quot;);</span>
         }
-<span class="fc" id="L54">        Movie movie = movieRepository.findByMovieNameAndTheatreName(movieName, theatreName)</span>
-<span class="fc" id="L55">                .orElseThrow(() -&gt; new IllegalArgumentException(&quot;Movie not found&quot;));</span>
-<span class="fc" id="L56">        movie.setTotalTickets(total);</span>
-<span class="fc" id="L57">        int booked = bookedCount(movieName, theatreName);</span>
-<span class="fc" id="L58">        int remaining = movie.getTotalTickets() - booked;</span>
-<span class="fc bfc" id="L59" title="All 2 branches covered.">        movie.setStatus(remaining &lt;= 0 ? &quot;SOLD OUT&quot; : &quot;BOOK ASAP&quot;);</span>
-<span class="fc" id="L60">        return movieRepository.save(movie);</span>
+        
+<span class="fc" id="L89">        Movie movie = movieRepository.findByMovieNameAndTheatreName(movieName, theatreName)</span>
+<span class="fc" id="L90">                .orElseThrow(() -&gt; {</span>
+<span class="fc" id="L91">                    log.warn(&quot;Movie not found for ticket update - name: {}, theatre: {}&quot;, movieName, theatreName);</span>
+<span class="fc" id="L92">                    return new IllegalArgumentException(&quot;Movie not found&quot;);</span>
+                });
+        
+<span class="fc" id="L95">        log.debug(&quot;Current movie details - totalTickets: {}, status: {}&quot;, movie.getTotalTickets(), movie.getStatus());</span>
+        
+<span class="fc" id="L97">        movie.setTotalTickets(total);</span>
+<span class="fc" id="L98">        int booked = bookedCount(movieName, theatreName);</span>
+<span class="fc" id="L99">        int remaining = movie.getTotalTickets() - booked;</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">        movie.setStatus(remaining &lt;= 0 ? &quot;SOLD OUT&quot; : &quot;BOOK ASAP&quot;);</span>
+        
+<span class="fc" id="L102">        Movie updatedMovie = movieRepository.save(movie);</span>
+<span class="fc" id="L103">        log.info(&quot;Total tickets updated for movie: {} at theatre: {} - new total: {}, new status: {}&quot;, </span>
+<span class="fc" id="L104">                movieName, theatreName, total, updatedMovie.getStatus());</span>
+        
+<span class="fc" id="L106">        return updatedMovie;</span>
     }
 
     public void deleteMovie(@NotBlank String movieName, @NotBlank String theatreName) {
-<span class="fc" id="L64">        long deletedCount = movieRepository.deleteByMovieNameAndTheatreName(movieName, theatreName);</span>
-<span class="fc bfc" id="L65" title="All 2 branches covered.">        if (deletedCount == 0) {</span>
-<span class="fc" id="L66">            throw new IllegalArgumentException(&quot;Movie not found with name: &quot; + movieName + &quot; and theatre: &quot; + theatreName);</span>
+<span class="fc" id="L110">        log.debug(&quot;Deleting movie by name and theatre - name: {}, theatre: {}&quot;, movieName, theatreName);</span>
+        
+<span class="fc" id="L112">        long deletedCount = movieRepository.deleteByMovieNameAndTheatreName(movieName, theatreName);</span>
+        
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (deletedCount == 0) {</span>
+<span class="fc" id="L115">            log.warn(&quot;No movie found to delete - name: {}, theatre: {}&quot;, movieName, theatreName);</span>
+<span class="fc" id="L116">            throw new IllegalArgumentException(&quot;Movie not found with name: &quot; + movieName + &quot; and theatre: &quot; + theatreName);</span>
         }
-<span class="fc" id="L68">    }</span>
+        
+<span class="fc" id="L119">        log.info(&quot;Movie deleted successfully - name: {}, theatre: {}, deletedCount: {}&quot;, </span>
+<span class="fc" id="L120">                movieName, theatreName, deletedCount);</span>
+<span class="fc" id="L121">    }</span>
 } 
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.10.202304240956</span></div></body></html>

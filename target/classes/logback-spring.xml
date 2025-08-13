@@ -1,27 +1,101 @@
 <configuration>
   <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
   <property name="LOG_LEVEL_PATTERN" value="%5p"/>
-  <property name="LOG_FILE" value="${LOG_FILE:-}"/>
+  <property name="LOG_FILE" value="${LOG_FILE:-logs/moviebooking-app.log}"/>
+  <property name="LOG_ARCHIVE" value="${LOG_ARCHIVE:-logs/archive}"/>
 
+  <!-- Console Appender with enhanced formatting -->
   <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- File Appender -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_FILE}</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_ARCHIVE}/moviebooking-app.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+      <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+        <maxFileSize>10MB</maxFileSize>
+      </timeBasedFileNamingAndTriggeringPolicy>
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- JSON Appender for structured logging -->
+  <appender name="JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>logs/moviebooking-app.json</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_ARCHIVE}/moviebooking-app.%d{yyyy-MM-dd}.%i.json</fileNamePattern>
+      <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+        <maxFileSize>10MB</maxFileSize>
+      </timeBasedFileNamingAndTriggeringPolicy>
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
     <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
   </appender>
 
+  <!-- Kafka Appender -->
   <appender name="KAFKA" class="com.github.danielwegener.logback.kafka.KafkaAppender">
     <topic>app-logs</topic>
     <encoder class="com.github.danielwegener.logback.kafka.encoding.LayoutKafkaMessageEncoder">
       <layout class="net.logstash.logback.layout.LogstashLayout"/>
     </encoder>
-    <producerConfig>bootstrap.servers=${spring.kafka.bootstrap-servers}</producerConfig>
+    <producerConfig>bootstrap.servers=${spring.kafka.bootstrap-servers:localhost:9092}</producerConfig>
     <deliveryStrategy class="com.github.danielwegener.logback.kafka.delivery.AsynchronousDeliveryStrategy"/>
   </appender>
 
+  <!-- Application specific loggers -->
+  <logger name="com.moviebookingapp" level="DEBUG" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+    <appender-ref ref="JSON"/>
+    <appender-ref ref="KAFKA"/>
+  </logger>
+
+  <!-- Controller logging -->
+  <logger name="com.moviebookingapp.controller" level="INFO" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+    <appender-ref ref="JSON"/>
+  </logger>
+
+  <!-- Service logging -->
+  <logger name="com.moviebookingapp.service" level="DEBUG" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+    <appender-ref ref="JSON"/>
+  </logger>
+
+  <!-- Repository logging -->
+  <logger name="com.moviebookingapp.repository" level="DEBUG" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+    <appender-ref ref="JSON"/>
+  </logger>
+
+  <!-- Exception handling logging -->
+  <logger name="com.moviebookingapp.exception" level="ERROR" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+    <appender-ref ref="JSON"/>
+    <appender-ref ref="KAFKA"/>
+  </logger>
+
+  <!-- External library loggers -->
   <logger name="org.apache.kafka" level="WARN"/>
   <logger name="kafka" level="WARN"/>
   <logger name="org.springframework.kafka" level="WARN"/>
+  <logger name="org.hibernate.SQL" level="DEBUG"/>
+  <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
 
+  <!-- Root logger -->
   <root level="INFO">
     <appender-ref ref="CONSOLE"/>
-    <appender-ref ref="KAFKA"/>
+    <appender-ref ref="FILE"/>
   </root>
 </configuration>

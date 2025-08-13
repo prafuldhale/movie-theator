@@ -18,13 +18,19 @@ spring:
       auto-offset-reset: earliest
       group-id: test-group
 
-security:
-  jwt:
-    secret: testsecretkeytestsecretkeytestsecretkeytestsecretkey
-    expiration: 3600000
-
 logging:
   level:
     root: WARN
-    org.springframework.kafka: WARN
+    org.springframework: WARN
+    org.hibernate: WARN
     org.apache.kafka: WARN
+
+jwt:
+  secret: testsecretkeytestsecretkeytestsecretkeytestsecretkey
+  expiration: 3600000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

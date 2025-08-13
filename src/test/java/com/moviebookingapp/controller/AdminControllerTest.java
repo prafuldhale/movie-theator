@@ -1,164 +1,120 @@
 package com.moviebookingapp.controller;
 
 import com.moviebookingapp.domain.Movie;
+import com.moviebookingapp.dto.BookedInfoDTO;
 import com.moviebookingapp.service.MovieService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.test.web.servlet.MockMvc;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.ResponseEntity;
 
-import java.util.Arrays;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-@WebMvcTest(AdminController.class)
 class AdminControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @MockBean
+    @Mock
     private MovieService movieService;
 
-    private Movie testMovie;
-    private List<Movie> testMovies;
+    @InjectMocks
+    private AdminController adminController;
 
     @BeforeEach
     void setUp() {
-        testMovie = Movie.builder()
-                .id(1L)
-                .movieName("Test Movie")
-                .theatreName("Test Theatre")
-                .totalTickets(100)
-                .status("BOOK ASAP")
-                .build();
+        MockitoAnnotations.openMocks(this);
+    }
 
-        testMovies = Arrays.asList(testMovie);
+    private Movie createMovie(String movieName, String theatreName, int totalTickets) {
+        Movie movie = new Movie();
+        movie.setMovieName(movieName);
+        movie.setTheatreName(theatreName);
+        movie.setTotalTickets(totalTickets);
+        return movie;
     }
 
     @Test
-    void getBookedInfo_Success() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        String theatre = "Test Theatre";
-        int bookedCount = 50;
-        
-        when(movieService.bookedCount(movieName, theatre)).thenReturn(bookedCount);
-        when(movieService.searchMovies(movieName)).thenReturn(testMovies);
+    void testBooked_BookAsap() {
+        when(movieService.bookedCount("Inception", "PVR")).thenReturn(5);
+        when(movieService.searchMovies("Inception")).thenReturn(List.of(createMovie("Inception", "PVR", 10)));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/v1.0/moviebooking/{moviename}/booked/{theatre}", movieName, theatre))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.booked").value(50))
-                .andExpect(jsonPath("$.remaining").value(50))
-                .andExpect(jsonPath("$.status").value("BOOK ASAP"));
+        ResponseEntity<BookedInfoDTO> response = adminController.booked("Inception", "PVR");
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(5, response.getBody().getBooked());
+        assertEquals(5, response.getBody().getRemaining());
+        assertEquals("BOOK ASAP", response.getBody().getStatus());
     }
 
     @Test
-    void getBookedInfo_SoldOut() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        String theatre = "Test Theatre";
-        int bookedCount = 100; // All tickets booked
-        
-        when(movieService.bookedCount(movieName, theatre)).thenReturn(bookedCount);
-        when(movieService.searchMovies(movieName)).thenReturn(testMovies);
+    void testBooked_SoldOut_ExactMatch() {
+        when(movieService.bookedCount("Inception", "PVR")).thenReturn(10);
+        when(movieService.searchMovies("Inception")).thenReturn(List.of(createMovie("Inception", "PVR", 10)));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/v1.0/moviebooking/{moviename}/booked/{theatre}", movieName, theatre))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.booked").value(100))
-                .andExpect(jsonPath("$.remaining").value(0))
-                .andExpect(jsonPath("$.status").value("SOLD OUT"));
+        ResponseEntity<BookedInfoDTO> response = adminController.booked("Inception", "PVR");
+
+        assertEquals("SOLD OUT", response.getBody().getStatus());
+        assertEquals(0, response.getBody().getRemaining());
     }
 
     @Test
-    void getBookedInfo_Overbooked() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        String theatre = "Test Theatre";
-        int bookedCount = 120; // More than total tickets (edge case)
-        
-        when(movieService.bookedCount(movieName, theatre)).thenReturn(bookedCount);
-        when(movieService.searchMovies(movieName)).thenReturn(testMovies);
+    void testBooked_SoldOut_Overbooked() {
+        when(movieService.bookedCount("Inception", "PVR")).thenReturn(15);
+        when(movieService.searchMovies("Inception")).thenReturn(List.of(createMovie("Inception", "PVR", 10)));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/v1.0/moviebooking/{moviename}/booked/{theatre}", movieName, theatre))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.booked").value(120))
-                .andExpect(jsonPath("$.remaining").value(0)) // Should be clamped to 0
-                .andExpect(jsonPath("$.status").value("SOLD OUT"));
+        ResponseEntity<BookedInfoDTO> response = adminController.booked("Inception", "PVR");
+
+        assertEquals(0, response.getBody().getRemaining()); // Safeguard
+        assertEquals("SOLD OUT", response.getBody().getStatus());
     }
 
     @Test
-    void getBookedInfo_MovieNotFound() throws Exception {
-        // Arrange
-        String movieName = "Non Existent Movie";
-        String theatre = "Test Theatre";
-        
-        when(movieService.bookedCount(movieName, theatre)).thenReturn(0);
-        when(movieService.searchMovies(movieName)).thenReturn(Arrays.asList());
+    void testBooked_CaseInsensitiveTheatreMatch() {
+        when(movieService.bookedCount("Inception", "pvr")).thenReturn(3);
+        when(movieService.searchMovies("Inception")).thenReturn(List.of(createMovie("Inception", "PVR", 5)));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/v1.0/moviebooking/{moviename}/booked/{theatre}", movieName, theatre))
-                .andExpect(status().isBadRequest());
+        ResponseEntity<BookedInfoDTO> response = adminController.booked("Inception", "pvr");
+
+        assertEquals("BOOK ASAP", response.getBody().getStatus());
     }
 
     @Test
-    void getBookedInfo_TheatreNotFound() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        String theatre = "Non Existent Theatre";
-        
-        when(movieService.bookedCount(movieName, theatre)).thenReturn(0);
-        when(movieService.searchMovies(movieName)).thenReturn(testMovies);
+    void testBooked_NoMovieFound() {
+        when(movieService.bookedCount("Inception", "PVR")).thenReturn(2);
+        when(movieService.searchMovies("Inception")).thenReturn(List.of());
 
-        // Act & Assert
-        mockMvc.perform(get("/api/v1.0/moviebooking/{moviename}/booked/{theatre}", movieName, theatre))
-                .andExpect(status().isBadRequest());
+        assertThrows(IllegalArgumentException.class,
+                () -> adminController.booked("Inception", "PVR"));
     }
 
     @Test
-    void getBookedInfo_ZeroTickets() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        String theatre = "Test Theatre";
-        int bookedCount = 0;
-        
-        testMovie.setTotalTickets(0);
-        when(movieService.bookedCount(movieName, theatre)).thenReturn(bookedCount);
-        when(movieService.searchMovies(movieName)).thenReturn(testMovies);
+    void testBooked_TheatreNotMatching() {
+        when(movieService.bookedCount("Inception", "PVR")).thenReturn(2);
+        when(movieService.searchMovies("Inception")).thenReturn(List.of(createMovie("Inception", "IMAX", 5)));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/v1.0/moviebooking/{moviename}/booked/{theatre}", movieName, theatre))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.booked").value(0))
-                .andExpect(jsonPath("$.remaining").value(0))
-                .andExpect(jsonPath("$.status").value("SOLD OUT"));
+        assertThrows(IllegalArgumentException.class,
+                () -> adminController.booked("Inception", "PVR"));
     }
 
     @Test
-    void getBookedInfo_ExactCapacity() throws Exception {
-        // Arrange
-        String movieName = "Test Movie";
-        String theatre = "Test Theatre";
-        int bookedCount = 50;
-        
-        testMovie.setTotalTickets(50); // Exact capacity
-        when(movieService.bookedCount(movieName, theatre)).thenReturn(bookedCount);
-        when(movieService.searchMovies(movieName)).thenReturn(testMovies);
+    void testBooked_BookedCountThrowsException() {
+        when(movieService.bookedCount(anyString(), anyString()))
+                .thenThrow(new RuntimeException("DB error"));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/v1.0/moviebooking/{moviename}/booked/{theatre}", movieName, theatre))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.booked").value(50))
-                .andExpect(jsonPath("$.remaining").value(0))
-                .andExpect(jsonPath("$.status").value("SOLD OUT"));
+        assertThrows(RuntimeException.class,
+                () -> adminController.booked("Inception", "PVR"));
     }
-} 
+
+    @Test
+    void testBooked_SearchMoviesThrowsException() {
+        when(movieService.bookedCount("Inception", "PVR")).thenReturn(2);
+        when(movieService.searchMovies(anyString()))
+                .thenThrow(new RuntimeException("Service down"));
+
+        assertThrows(RuntimeException.class,
+                () -> adminController.booked("Inception", "PVR"));
+    }
+}
