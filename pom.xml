@@ -7,11 +7,6 @@
   <name>moviebooking-backend</name>
   <description>Movie Booking App Backend (Spring Boot, MySQL, Kafka, Logging, Monitoring)</description>
   <properties>
-    <sonar.organization>prafuldhale</sonar.organization>
-    <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-  </properties>
-  <properties>
-    
     <java.version>17</java.version>
     <spring-boot.version>3.1.2</spring-boot.version>
     <lombok.version>1.18.28</lombok.version>
@@ -26,6 +21,8 @@
     <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
     <jacoco.version>0.8.10</jacoco.version>
     <jacoco.coverage.minimum>0.80</jacoco.coverage.minimum>
+    <sonar.organization>prafuldhale</sonar.organization>
+    <sonar.host.url>https://sonarcloud.io</sonar.host.url>
   </properties>
 
   <dependencyManagement>
