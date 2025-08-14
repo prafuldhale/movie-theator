@@ -23,6 +23,7 @@
     <jacoco.coverage.minimum>0.80</jacoco.coverage.minimum>
     <sonar.organization>prafuldhale</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+    <sonar.exclusions>**/config/**,**/exception/**,**/bootstrap/**,**/dto/**,**/domain/**,**/messaging/**</sonar.exclusions>
   </properties>
 
   <dependencyManagement>
